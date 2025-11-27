@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+📚 Deskripsi Proyek
+Learning Resource Library adalah sebuah website fungsional yang dirancang untuk membantu pelajar dan mahasiswa dalam mengorganisir materi belajar mereka. Pengguna dapat menyimpan berbagai sumber belajar dari berbagai mata pelajaran atau kursus dalam satu platform yang terintegrasi.
 
-## Getting Started
+✨ Fitur Utama
+🔐 Manajemen Akun Pengguna
+Registrasi (Sign Up) - Pembuatan akun baru
 
-First, run the development server:
+Otentikasi Masuk (Login) - Akses ke akun pribadi
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Keamanan Password - Password di-hash untuk keamanan
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+📝 Manajemen Resource Belajar (CRUD Operations)
+Create - Menambahkan resource belajar baru
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Read - Melihat daftar resource yang tersimpan
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Update - Memperbarui informasi resource
 
-## Learn More
+Delete - Menghapus resource yang tidak diperlukan
 
-To learn more about Next.js, take a look at the following resources:
+📎 Informasi Resource
+Setiap resource belajar dapat menyimpan informasi:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Judul
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Deskripsi
 
-## Deploy on Vercel
+Kategori
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Level
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Prioritas
+
+Sumber
+
+📁 Upload File
+Mendukung upload berbagai format file:
+
+PPT (PowerPoint)
+
+PDF
+
+DOCS (Word Documents)
+
+DII (Format tambahan)
+
+🔍 Fitur Pencarian dan Filter
+Search Bar - Pencarian efisien berdasarkan Judul dan Deskripsi
+
+Filter - Penyaringan resource berdasarkan kriteria tertentu
+
+📊 Pelacakan Progress Belajar
+Status Progress:
+
+  -🟡 Belum Dimulai
+
+  -🔵 Sedang Dipelajari
+
+  -✅ Selesai
+
+  -Progress Bar Visual - Presentase kemajuan belajar dalam bentuk visual
+
+🎯 Target Pengguna
+  -Pelajar SMA/SMP
+
+  -Mahasiswa
+
+  -Pembelajar seumur hidup
