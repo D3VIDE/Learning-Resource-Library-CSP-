@@ -21,7 +21,7 @@ export default function Auth() {
 
   return (
     <AuthForm
-      onLoginSuccess={() => router.push("/")}
+      onLoginSuccess={() => router.push("/dashboard")}
       theme={theme}
       onToggleTheme={() =>
         setTheme((prev) => (prev === "light" ? "dark" : "light"))
