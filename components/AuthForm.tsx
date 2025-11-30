@@ -5,10 +5,12 @@ import {motion} from 'motion/react'
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import {login,signup} from '../lib/auth';
+
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { toast } from 'sonner';
 import { BookOpen, Loader2, Moon, Sun } from 'lucide-react';
+import { useAuthContext } from './AuthProvider';
+
 
 interface AuthFormProps {
   onLoginSuccess: () => void;
@@ -22,6 +24,8 @@ export function AuthForm({onLoginSuccess,theme,onToggleTheme}: AuthFormProps){
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const { login, signup } = useAuthContext();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
