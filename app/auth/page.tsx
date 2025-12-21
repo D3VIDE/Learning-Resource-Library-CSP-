@@ -1,23 +1,21 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import { AuthForm } from "../../components/AuthForm";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { AuthForm } from "../../components/AuthForm"
 
 export default function Auth() {
-  const router = useRouter();
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const router = useRouter()
+  const [theme, setTheme] = useState<"light" | "dark">("light")
 
-  // ⬇ kalau theme berubah, pasang class dark ke html
   useEffect(() => {
-    const html = document.documentElement;
-
+    const html = document.documentElement
     if (theme === "dark") {
-      html.classList.add("dark");
+      html.classList.add("dark")
     } else {
-      html.classList.remove("dark");
+      html.classList.remove("dark")
     }
-  }, [theme]);
+  }, [theme])
 
   return (
     <AuthForm
@@ -27,5 +25,5 @@ export default function Auth() {
         setTheme((prev) => (prev === "light" ? "dark" : "light"))
       }
     />
-  );
+  )
 }

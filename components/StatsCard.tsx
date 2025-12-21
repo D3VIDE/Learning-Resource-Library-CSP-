@@ -1,106 +1,105 @@
-// /components/dashboard/StatsCards.tsx
-'use client';
+"use client"
 
-import { motion } from 'motion/react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { BookOpen, Clock, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
+import { BookOpen, CheckCircle, TrendingUp, Star, Loader2 } from "lucide-react"
+import { ResourceStats } from "../lib/types"
+import { useEffect, useState } from "react"
+import { resourceService } from "../lib/services/resourceService"
 
-interface Resource {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  level: string;
-  status: string;
-  progress: number;
-  url: string;
-}
+export function StatsCard() {
+  const [stats, setStats] = useState<ResourceStats | null>(null)
+  const [loading, setLoading] = useState(true)
 
-interface StatsCardsProps {
-  resources: Resource[];
-}
+  useEffect(() => {
+    loadStats()
+  }, [])
 
-export function StatsCards({ resources }: StatsCardsProps) {
-  // Calculate stats
-  const total = resources.length;
-  const completed = resources.filter(r => r.status === 'completed').length;
-  const inProgress = resources.filter(r => r.status === 'in-progress').length;
-  const avgProgress = total > 0 
-    ? Math.round(resources.reduce((sum, r) => sum + r.progress, 0) / total)
-    : 0;
-
-  const cards = [
-    {
-      title: 'Total Resources',
-      value: total,
-      icon: BookOpen,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      description: 'Semua materi belajar'
-    },
-    {
-      title: 'Sedang Dipelajari',
-      value: inProgress,
-      icon: Clock,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-50',
-      description: 'Dalam progres'
-    },
-    {
-      title: 'Selesai',
-      value: completed,
-      icon: CheckCircle2,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
-      description: 'Sudah selesai'
-    },
-    {
-      title: 'Rata-rata Progress',
-      value: `${avgProgress}%`,
-      icon: TrendingUp,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      description: 'Progress rata-rata'
+  const loadStats = async () => {
+    setLoading(true)
+    const result = await resourceService.getUserStats()
+    if (result.success && result.data) {
+      setStats(result.data)
     }
-  ];
+    setLoading(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <CardContent className="p-6">
+              <div className="flex justify-center">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  const statsData = stats || {
+    total_resources: 0,
+    completed_resources: 0,
+    in_progress_resources: 0,
+    total_progress_percentage: 0,
+    favorite_resources: 0
+  }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"
-    >
-      {cards.map((card, index) => {
-        const Icon = card.icon;
-        return (
-          <motion.div
-            key={card.title}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.1 }}
-            whileHover={{ y: -5 }}
-          >
-            <Card className="hover:shadow-lg transition-all duration-300">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-                  <div className={`p-2 rounded-lg ${card.bgColor}`}>
-                    <Icon className={`h-4 w-4 ${card.color}`} />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-end gap-2">
-                  <div className="text-2xl font-bold">{card.value}</div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    {card.description}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        );
-      })}
-    </motion.div>
-  );
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Resources</CardTitle>
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{statsData.total_resources}</div>
+          <p className="text-xs text-muted-foreground">
+            Semua materi belajar
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Completed</CardTitle>
+          <CheckCircle className="h-4 w-4 text-green-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{statsData.completed_resources}</div>
+          <p className="text-xs text-muted-foreground">
+            Selesai dipelajari
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Progress</CardTitle>
+          <TrendingUp className="h-4 w-4 text-blue-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{Math.round(statsData.total_progress_percentage)}%</div>
+          <p className="text-xs text-muted-foreground">
+            Rata-rata progress
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Favorites</CardTitle>
+          <Star className="h-4 w-4 text-yellow-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{statsData.favorite_resources}</div>
+          <p className="text-xs text-muted-foreground">
+            Materi favorit
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }

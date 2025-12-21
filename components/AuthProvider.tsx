@@ -1,57 +1,77 @@
-"use client";
+"use client"
 
-import { createContext, useContext, ReactNode, useState, useEffect } from "react";
-import { login, signup, logout, getCurrentUser } from "../lib/auth";
-import { supabase } from "../lib/supabaseBrowser";
+import { createContext, useContext, ReactNode, useState, useEffect } from "react"
+import { login, signup, logout, getCurrentUser } from "../lib/auth"
+import { User, AuthResult } from "../lib/types"
+import {supabase} from "../lib/client";
 
 interface AuthContextType {
-  user: any;
-  login: (email: string, password: string) => Promise<any>;
-  signup: (name: string, email: string, password: string) => Promise<any>;
-  logout: () => Promise<void>;
-  loading: boolean;
+  user: User | null
+  login: (email: string, password: string) => Promise<AuthResult>
+  signup: (name: string, email: string, password: string) => Promise<AuthResult>
+  logout: () => Promise<void>
+  loading: boolean
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // Load user saat halaman dibuka
   useEffect(() => {
-    getCurrentUser().then((u) => {
-      setUser(u);
-      setLoading(false);
-    });
+    getCurrentUser().then((user) => {
+      setUser(user)
+      setLoading(false)
+    })
 
-    // Listen perubahan session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
+      async () => {
+        const user = await getCurrentUser()
+        setUser(user)
       }
-    );
+    )
 
-    return () => subscription.unsubscribe(); // ✅ FIX: hapus .subscription
-  }, []);
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  const handleLogin = async (email: string, password: string) => {
+    const result = await login(email, password)
+    if (result.success) {
+      setUser(result.user || null)
+    }
+    return result
+  }
+
+  const handleSignup = async (name: string, email: string, password: string) => {
+    const result = await signup(name, email, password)
+    return result
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    setUser(null)
+  }
 
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
-        login,
-        signup,
-        logout,
+        login: handleLogin,
+        signup: handleSignup,
+        logout: handleLogout,
       }}
     >
       {children}
     </AuthContext.Provider>
-  );
+  )
 }
 
 export function useAuthContext() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuthContext must be used within AuthProvider");
-  return ctx;
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error("useAuthContext must be used within AuthProvider")
+  return ctx
 }

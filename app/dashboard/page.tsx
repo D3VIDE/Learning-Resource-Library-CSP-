@@ -1,108 +1,81 @@
 "use client"
-import { useState } from "react";
-import { useMemo } from "react";
-import { useEffect } from "react";
-import {motion, AnimatePresence} from 'motion/react';
-import {Button} from '../../components/ui/button';
-import {Input} from '../../components/ui/input';
-import {Select, SelectContent, SelectItem,SelectTrigger,SelectValue} from '../../components/ui/select';
-import {DropdownMenu, DropdownMenuContent,DropdownMenuItem,DropdownMenuLabel,DropdownMenuSeparator,DropdownMenuTrigger} from '../../components/ui/dropdown-menu';
-import {
-  Plus,
-  Search,
-  Filter,
-  BookOpen,
-  LogOut,
-  User,
-  Moon,
-  Sun,
-  Loader2,
-  TrendingUp
-} from 'lucide-react';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Progress } from '../../components/ui/progress';
 
-import { Header } from '@/components/Header';
-import { useAuthContext } from "@/components/AuthProvider";
-import { useRouter } from "next/navigation";
-import { StatsCards } from "@/components/StatsCard";
-
-// Mock data sementara
-const mockResources = [
-  {
-    id: '1',
-    title: 'React Documentation',
-    description: 'Official React documentation and guides',
-    category: 'Frontend',
-    level: 'beginner',
-    status: 'in-progress',
-    progress: 75,
-    url: 'https://reactjs.org',
-  },
-  {
-    id: '2',
-    title: 'TypeScript Handbook',
-    description: 'Complete TypeScript guide',
-    category: 'Programming',
-    level: 'intermediate',
-    status: 'not-started',
-    progress: 0,
-    url: 'https://www.typescriptlang.org',
-  },
-  {
-    id: '3',
-    title: 'Next.js Tutorial',
-    description: 'Learn Next.js step by step',
-    category: 'Fullstack',
-    level: 'beginner',
-    status: 'completed',
-    progress: 100,
-    url: 'https://nextjs.org',
-  },
-  {
-    id: '4',
-    title: 'Tailwind CSS',
-    description: 'Utility-first CSS framework',
-    category: 'Frontend',
-    level: 'beginner',
-    status: 'in-progress',
-    progress: 50,
-    url: 'https://tailwindcss.com',
-  },
-];  
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Plus, Loader2 } from "lucide-react"
+import { Header } from "@/components/Header"
+import { StatsCard } from "@/components/StatsCard"
+import { ResourceCard } from "@/components/ResourceCard"
+import { ResourceModal } from "@/components/ResourceModal"
+import { useAuthContext } from "@/components/AuthProvider"
+import { resourceService } from "@/lib/services/resourceService"
+import { Resource } from "@/lib/types"
+import { toast } from "sonner"
 
 export default function Dashboard() {
-  const {user,logout,loading:authLoading} = useAuthContext();
-  const router = useRouter();
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-   const [resources] = useState(mockResources);
+  const { user, logout, loading: authLoading } = useAuthContext()
+  const router = useRouter()
+  const [theme, setTheme] = useState<"light" | "dark">("light")
+  const [resources, setResources] = useState<Resource[]>([])
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedResource, setSelectedResource] = useState<Resource>()
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth');
+      router.push("/auth")
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router])
 
-    useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' || 'light';
-    setTheme(savedTheme);
-    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-  }, []);
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" || "light"
+    setTheme(savedTheme)
+    document.documentElement.classList.toggle("dark", savedTheme === "dark")
+  }, [])
 
-    const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-  };
+  useEffect(() => {
+    if (user) {
+      loadResources()
+    }
+  }, [user])
 
-    const handleLogout = async () => {
-    await logout();
-    router.push('/auth');
-  };
+  const loadResources = async () => {
+    setLoading(true)
+    const result = await resourceService.getResources()
+    if (result.success && result.data) {
+      setResources(result.data)
+    } else {
+      toast.error("Failed to load resources")
+    }
+    setLoading(false)
+  }
 
-    if (authLoading) {
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light"
+    setTheme(newTheme)
+    localStorage.setItem("theme", newTheme)
+    document.documentElement.classList.toggle("dark", newTheme === "dark")
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    router.push("/auth")
+  }
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Are you sure you want to delete this resource?")) {
+      const result = await resourceService.deleteResource(id)
+      if (result.success) {
+        toast.success("Resource deleted")
+        loadResources()
+      } else {
+        toast.error(result.error || "Failed to delete resource")
+      }
+    }
+  }
+
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -110,12 +83,11 @@ export default function Dashboard() {
           <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
-    );
+    )
   }
 
-  // Jika tidak ada user, return null (akan redirect di useEffect)
   if (!user) {
-    return null;
+    return null
   }
 
   return (
@@ -128,15 +100,63 @@ export default function Dashboard() {
       />
       
       <main className="container mx-auto px-4 py-8">
-        {/* Simple welcome message dulu */}
-        <StatsCards resources={resources} />
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold mb-4">Selamat datang di Dashboard!</h2>
-          <p className="text-muted-foreground">
-            Mulai kelola resource belajar Anda.
-          </p>
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Welcome back, {user.name || user.email}!
+            </p>
+          </div>
+          <Button onClick={() => setModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Resource
+          </Button>
+        </div>
+
+        <StatsCard />
+
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold mb-4">My Resources</h2>
+          {loading ? (
+            <div className="text-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+              <p className="mt-4 text-muted-foreground">Loading resources...</p>
+            </div>
+          ) : resources.length === 0 ? (
+            <div className="text-center py-12 border rounded-lg">
+              <p className="text-muted-foreground mb-4">No resources yet</p>
+              <Button onClick={() => setModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Resource
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {resources.map((resource) => (
+                <ResourceCard
+                  key={resource.id}
+                  resource={resource}
+                  onEdit={(resource) => {
+                    setSelectedResource(resource)
+                    setModalOpen(true)
+                  }}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </main>
+
+      <ResourceModal
+        open={modalOpen}
+        onOpenChange={(open) => {
+          setModalOpen(open)
+          if (!open) setSelectedResource(undefined)
+        }}
+        resource={selectedResource}
+        onSuccess={loadResources}
+      />
     </div>
-  );
+  )
 }

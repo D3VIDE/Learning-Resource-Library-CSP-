@@ -24,7 +24,6 @@ export function AuthForm({onLoginSuccess,theme,onToggleTheme}: AuthFormProps){
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-
   const { login, signup } = useAuthContext();
 
   const handleSubmit = async (e: React.FormEvent) => {
