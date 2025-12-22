@@ -118,18 +118,13 @@ export function ResourceCard({ resource, onEdit, onDelete }: ResourceCardProps) 
       </CardHeader>
 
       <CardContent className="p-5 pt-2 flex-grow flex flex-col gap-4">
-        {/* Description */}
-        <p className="text-gray-600 text-sm line-clamp-2 min-h-[40px]">{resource.description || "No description provided."}</p>
-
-        {/* Source Box (Gray Background) */}
-        <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 flex items-center gap-2 border border-gray-100">
-          <span className="text-gray-400 font-medium">Source:</span>
-          <span className="font-medium truncate flex-1 text-gray-700">{resource.source_type === "link" ? getDomain(resource.url) : "File Upload"}</span>
-          {resource.url && (
-            <a href={resource.url} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-700 hover:underline">
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          )}
+        <div className="flex gap-4">
+          <span className="flex items-center gap-1.5" title="Attached Files">
+            <FileText className="w-3 h-3" /> {resource.files?.length || 0} {/* Ganti logika count */}
+          </span>
+          <span className="flex items-center gap-1.5" title="External Links">
+            <ExternalLink className="w-3 h-3" /> {resource.links?.length || 0} {/* Ganti logika count */}
+          </span>
         </div>
 
         {/* Progress Section */}
@@ -148,11 +143,11 @@ export function ResourceCard({ resource, onEdit, onDelete }: ResourceCardProps) 
 
       <CardFooter className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-xs text-gray-500 flex justify-between items-center">
         <div className="flex gap-4">
-          <span className="flex items-center gap-1.5">
-            <FileText className="w-3 h-3" /> {resource.source_type === "file" ? 1 : 0}
+          <span className="flex items-center gap-1.5" title="Attached Files">
+            <FileText className="w-3 h-3" /> {resource.files?.length || 0}
           </span>
-          <span className="flex items-center gap-1.5">
-            <ExternalLink className="w-3 h-3" /> {resource.source_type === "link" ? 1 : 0}
+          <span className="flex items-center gap-1.5" title="External Links">
+            <ExternalLink className="w-3 h-3" /> {resource.links?.length || 0}
           </span>
         </div>
 

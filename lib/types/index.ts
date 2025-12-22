@@ -7,31 +7,30 @@ export interface User {
 }
 
 export interface Resource {
-  id: string
-  user_id: string
-  title: string
-  description: string | null
-  category_id: string | null
-  category?: Category
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  category_id: string | null;
+  category?: Category;
   
-  source_type: 'link' | 'file'
-  url: string | null
-  file_name: string | null
-  file_size: number | null
-  file_type: string | null
-  file_url: string | null
+
+  // Data dari Supabase join akan masuk ke sini
+  links?: ResourceLink[]; 
+  files?: ResourceFile[];
+
+  // Field lama (opsional, buat jaga-jaga backward compatibility)
+  url?: string | null;
+  file_name?: string | null;
+
+  level: 'beginner' | 'intermediate' | 'advanced';
+  priority: 'low' | 'medium' | 'high';
+  status: 'not-started' | 'in-progress' | 'completed';
+  progress: number;
+  source_type: string; 
   
-  level: 'beginner' | 'intermediate' | 'advanced'
-  priority: 'low' | 'medium' | 'high'
-  status: 'not-started' | 'in-progress' | 'completed'
-  progress: number
-  
-  is_favorite: boolean
-  is_public: boolean
-  
-  created_at: string
-  updated_at: string
-  completed_at: string | null
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Category {

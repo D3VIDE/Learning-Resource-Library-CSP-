@@ -1,157 +1,181 @@
 import { supabase } from "../client";
-import { Resource, ResourceStats, ApiResponse, Category } from "../types";
+import { Resource, ApiResponse, Category } from "../types";
+
+// Helper: Upload file ke Storage Bucket 'library'
+const uploadFilesToStorage = async (userId: string, resourceId: string, files: File[]) => {
+  const uploadedFiles = [];
+
+  for (const file of files) {
+    try {
+      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+      const fileExt = cleanFileName.split('.').pop();
+      // Buat path unik: UserID/ResourceID/Timestamp_NamaFile
+      const filePath = `${userId}/${resourceId}/${Date.now()}_${cleanFileName}`;
+
+      // 2. Upload ke bucket 'library'
+      const { error: uploadError } = await supabase.storage
+        .from('library') // <--- SUDAH DIGANTI KE 'library'
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 3. Dapatkan Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('library') // <--- SUDAH DIGANTI KE 'library'
+        .getPublicUrl(filePath);
+
+      // 4. Masukkan ke array hasil
+      uploadedFiles.push({
+        resource_id: resourceId,
+        file_name: file.name, 
+        file_url: publicUrl,
+        file_size: file.size,
+        file_type: file.type
+      });
+      
+    } catch (error) {
+      console.error(`Gagal upload ${file.name}:`, error);
+    }
+  }
+  
+  return uploadedFiles;
+};
 
 export const resourceService = {
-  // --- 1. GET ALL RESOURCES ---
+  // 1. GET RESOURCES (Tetap sama)
   async getResources(): Promise<ApiResponse<Resource[]>> {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return { success: false, error: "Not authenticated" };
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Not authenticated" };
 
-      const { data, error } = await supabase.from("resources").select(`*, category:categories(*)`).eq("user_id", user.id).order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("resources")
+      .select(`
+        *,
+        category:categories(*),
+        links:resource_links(*),
+        files:resource_files(*)
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching resources:", error);
-        return { success: false, error: error.message };
-      }
-      return { success: true, data: data || [] };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data || [] };
   },
 
-  // --- 2. GET CATEGORIES ---
+  // 2. GET CATEGORIES (Tetap sama)
   async getCategories(): Promise<ApiResponse<Category[]>> {
-    try {
-      const { data, error } = await supabase.from("categories").select("*").order("name");
-
-      if (error) return { success: false, error: error.message };
-      return { success: true, data: data || [] };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
+    const { data, error } = await supabase.from("categories").select("*").order("name");
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data || [] };
   },
 
-  // --- 3. CREATE (ADD) RESOURCE ---
-  async createResource(resource: any): Promise<ApiResponse<Resource>> {
+  // 3. CREATE RESOURCE (Updated)
+  async createResource(payload: any): Promise<ApiResponse<Resource>> {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { success: false, error: "Not authenticated" };
 
-      // Bersihkan Payload
-      const cleanPayload = {
-        title: resource.title,
-        description: resource.description,
-        category_id: resource.category_id === "" ? null : resource.category_id,
-        source_type: resource.source_type,
-        url: resource.url,
-        level: resource.level,
-        priority: resource.priority,
-        status: resource.status,
-        progress: resource.progress || 0,
-        is_favorite: resource.is_favorite || false,
-        user_id: user.id,
-      };
-
-      // Hapus undefined
-      Object.keys(cleanPayload).forEach((key) => {
-        if ((cleanPayload as any)[key] === undefined) delete (cleanPayload as any)[key];
-      });
-
-      console.log("SERVICE LOG: Creating New Resource...", cleanPayload);
-
-      const { data, error } = await supabase.from("resources").insert([cleanPayload]).select().single();
-
-      if (error) {
-        console.error("Supabase Create Error:", error.message);
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data };
-    } catch (error: any) {
-      console.error("Exception createResource:", error);
-      return { success: false, error: error.message };
-    }
-  },
-
-  // --- 4. UPDATE (EDIT) RESOURCE ---
-  // Pastikan fungsi ini TERPISAH dan berbeda dari createResource
-  async updateResource(id: string, updates: Partial<Resource>): Promise<ApiResponse<Resource>> {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return { success: false, error: "Not authenticated" };
-
-      // Bersihkan Payload (Sama dengan create, tapi tanpa user_id)
-      const cleanPayload = {
-        title: updates.title,
-        description: updates.description,
-        category_id: updates.category_id === "" ? null : updates.category_id,
-        source_type: updates.source_type,
-        url: updates.url,
-        level: updates.level,
-        priority: updates.priority,
-        status: updates.status,
-        progress: updates.progress,
-        is_favorite: updates.is_favorite,
-      };
-
-      // Hapus undefined
-      Object.keys(cleanPayload).forEach((key) => {
-        if ((cleanPayload as any)[key] === undefined) delete (cleanPayload as any)[key];
-      });
-
-      console.log("SERVICE LOG: Updating Resource ID:", id, cleanPayload);
-
-      const { data, error } = await supabase
+      // A. Simpan Resource Utama
+      const { data: resource, error } = await supabase
         .from("resources")
-        .update(cleanPayload)
-        .eq("id", id)
-        .eq("user_id", user.id) // Security check
+        .insert([{
+            user_id: user.id,
+            title: payload.title,
+            description: payload.description,
+            category_id: payload.category_id || null,
+            level: payload.level,
+            priority: payload.priority,
+            status: payload.status,
+            progress: payload.progress,
+            source_type: 'mixed',
+        }])
         .select()
         .single();
 
-      if (error) {
-        console.error("Supabase Update Error:", error.message);
-        return { success: false, error: error.message };
+      if (error) throw error;
+
+      // B. Simpan Links
+      if (payload.links && payload.links.length > 0) {
+        const linksData = payload.links.map((link: any) => ({
+          resource_id: resource.id,
+          title: link.title,
+          url: link.url
+        }));
+        await supabase.from("resource_links").insert(linksData);
       }
 
-      return { success: true, data };
+      // C. UPLOAD FILES KE 'library'
+      if (payload.files && payload.files.length > 0) {
+        const filesData = await uploadFilesToStorage(user.id, resource.id, payload.files);
+        
+        if (filesData.length > 0) {
+          await supabase.from("resource_files").insert(filesData);
+        }
+      }
+
+      return { success: true, data: resource };
     } catch (error: any) {
-      console.error("Exception updateResource:", error);
+      console.error("Create Error:", error.message);
       return { success: false, error: error.message };
     }
   },
 
-  // --- 5. DELETE RESOURCE ---
-  async deleteResource(id: string): Promise<ApiResponse<null>> {
+  // 4. UPDATE RESOURCE (Updated)
+  async updateResource(id: string, payload: any): Promise<ApiResponse<Resource>> {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { success: false, error: "Not authenticated" };
 
-      const { error } = await supabase.from("resources").delete().eq("id", id).eq("user_id", user.id);
+      // A. Update Resource Utama
+      const { data: resource, error } = await supabase
+        .from("resources")
+        .update({
+            title: payload.title,
+            description: payload.description,
+            category_id: payload.category_id || null,
+            level: payload.level,
+            priority: payload.priority,
+            status: payload.status,
+            progress: payload.progress,
+        })
+        .eq("id", id)
+        .select()
+        .single();
 
-      if (error) return { success: false, error: error.message };
-      return { success: true, data: null };
+      if (error) throw error;
+
+      // B. Handle Links
+      if (payload.links) {
+        await supabase.from("resource_links").delete().eq("resource_id", id);
+        if (payload.links.length > 0) {
+          const linksData = payload.links.map((link: any) => ({
+            resource_id: id,
+            title: link.title,
+            url: link.url
+          }));
+          await supabase.from("resource_links").insert(linksData);
+        }
+      }
+
+      // C. Handle Files (Upload baru ke 'library' & Insert DB)
+      if (payload.files && payload.files.length > 0) {
+        const filesData = await uploadFilesToStorage(user.id, id, payload.files);
+        if (filesData.length > 0) {
+          await supabase.from("resource_files").insert(filesData);
+        }
+      }
+
+      return { success: true, data: resource };
     } catch (error: any) {
+      console.error("Update Error:", error.message);
       return { success: false, error: error.message };
     }
   },
 
-  // --- 6. STATS (Placeholder) ---
-  async getUserStats(): Promise<ApiResponse<ResourceStats>> {
-    try {
-      // Logic statistik manual bisa ditaruh sini jika perlu
-      return { success: true, data: null } as any;
-    } catch (e) {
-      return { success: false, error: "Stats error" };
-    }
+  // 5. DELETE RESOURCE
+  async deleteResource(id: string): Promise<ApiResponse<null>> {
+    const { error } = await supabase.from("resources").delete().eq("id", id);
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: null };
   },
 };
