@@ -7,6 +7,7 @@ import { Header } from "@/components/Header";
 import { StatsCard } from "@/components/StatsCard";
 import { ResourceCard } from "@/components/ResourceCard";
 import { ResourceModal } from "@/components/ResourceModal";
+import { ResourceDetailModal } from "@/components/ResourceDetailModal"; // IMPORT BARU
 import { SearchAndFilter } from "@/components/SearchAndFilter";
 import { useAuthContext } from "@/components/AuthProvider";
 import { resourceService } from "@/lib/services/resourceService";
@@ -24,9 +25,13 @@ export default function Dashboard() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal State
+  // Modal State (EDIT / ADD)
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedResource, setSelectedResource] = useState<Resource>();
+
+  // Modal State (DETAIL VIEW) - BARU
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedDetailResource, setSelectedDetailResource] = useState<Resource>();
 
   // Filter & Search State
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,9 +55,7 @@ export default function Dashboard() {
   }, [resources]);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/auth");
-    }
+    if (!authLoading && !user) router.push("/auth");
   }, [user, authLoading, router]);
 
   useEffect(() => {
@@ -62,9 +65,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      loadData();
-    }
+    if (user) loadData();
   }, [user]);
 
   const loadData = async () => {
@@ -72,13 +73,8 @@ export default function Dashboard() {
     try {
       const [resResult, catResult] = await Promise.all([resourceService.getResources(), resourceService.getCategories()]);
 
-      if (resResult.success && resResult.data) {
-        setResources(resResult.data);
-      }
-
-      if (catResult.success && catResult.data) {
-        setCategories(catResult.data);
-      }
+      if (resResult.success && resResult.data) setResources(resResult.data);
+      if (catResult.success && catResult.data) setCategories(catResult.data);
     } catch (error) {
       console.error("Error loading data:", error);
       toast.error("Network error.");
@@ -125,6 +121,18 @@ export default function Dashboard() {
     }
   };
 
+  // Fungsi Helper saat klik Edit
+  const handleEditClick = (res: Resource) => {
+    setSelectedResource(res);
+    setModalOpen(true);
+  };
+
+  // Fungsi Helper saat klik View Detail
+  const handleViewClick = (res: Resource) => {
+    setSelectedDetailResource(res);
+    setDetailOpen(true);
+  };
+
   if (authLoading)
     return (
       <div className="h-screen flex items-center justify-center">
@@ -147,7 +155,17 @@ export default function Dashboard() {
           <StatsCard total={stats.total} inProgress={stats.inProgress} completed={stats.completed} avgProgress={stats.avgProgress} />
         </div>
 
-        <SearchAndFilter searchQuery={searchQuery} setSearchQuery={setSearchQuery} filters={filters} setFilters={setFilters} onAddResource={() => setModalOpen(true)} categories={categories} />
+        <SearchAndFilter
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          filters={filters}
+          setFilters={setFilters}
+          onAddResource={() => {
+            setSelectedResource(undefined); // Reset form untuk add baru
+            setModalOpen(true);
+          }}
+          categories={categories}
+        />
 
         <div className="mb-6">
           {loading ? (
@@ -165,22 +183,26 @@ export default function Dashboard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredResources.map((resource) => (
-                <ResourceCard
-                  key={resource.id}
-                  resource={resource}
-                  onEdit={(res) => {
-                    setSelectedResource(res);
-                    setModalOpen(true);
-                  }}
-                  onDelete={handleDelete}
-                />
+                // UPDATE: Bungkus ResourceCard dengan div yang bisa diklik untuk membuka detail
+                <div key={resource.id} onClick={() => handleViewClick(resource)} className="cursor-pointer h-full">
+                  <ResourceCard
+                    resource={resource}
+                    // Kita cegah event bubbling agar tombol edit/delete di card tidak membuka detail
+                    onEdit={(res) => {
+                      handleEditClick(res);
+                    }}
+                    onDelete={(id) => {
+                      handleDelete(id);
+                    }}
+                  />
+                </div>
               ))}
             </div>
           )}
         </div>
       </main>
 
-      {/* MODAL DI SINI: Kita oper 'categories' ke dalamnya */}
+      {/* 1. EDIT / ADD MODAL */}
       <ResourceModal
         open={modalOpen}
         onOpenChange={(open) => {
@@ -189,7 +211,19 @@ export default function Dashboard() {
         }}
         resource={selectedResource}
         onSuccess={loadData}
-        categories={categories} // <--- INI KUNCINYA
+        categories={categories}
+      />
+
+      {/* 2. DETAIL MODAL (NEW) */}
+      <ResourceDetailModal
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        resource={selectedDetailResource}
+        onEdit={(res) => {
+          // Tutup detail, buka edit
+          setDetailOpen(false);
+          setTimeout(() => handleEditClick(res), 100); // Delay sedikit agar transisi halus
+        }}
       />
     </div>
   );

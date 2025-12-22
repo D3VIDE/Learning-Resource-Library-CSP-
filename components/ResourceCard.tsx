@@ -91,10 +91,26 @@ export function ResourceCard({ resource, onEdit, onDelete }: ResourceCardProps) 
 
           {/* Action Buttons (Muncul saat hover di desktop, atau selalu ada di mobile) */}
           <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50" onClick={() => onEdit(resource)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(resource);
+              }}
+            >
               <Edit2 className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(resource.id)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(resource.id);
+              }}
+            >
               <Trash2 className="w-4 h-4" />
             </Button>
           </div>
