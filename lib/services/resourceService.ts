@@ -196,13 +196,16 @@ export const resourceService = {
   },
 
   // 5. DELETE RESOURCE
-  async deleteResource(id: string): Promise<ApiResponse<null>> {
-    try {
-      const { error } = await supabase.from("resources").delete().eq("id", id);
-      if (error) throw error;
-      return { success: true, data: null };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  },
-};
+    async deleteResource(id: string): Promise<ApiResponse<null>> {
+        try {
+          // Supabase akan otomatis menghapus links & files terkait karena ON DELETE CASCADE di database
+          const { error } = await supabase.from("resources").delete().eq("id", id);
+          
+          if (error) throw error;
+          return { success: true, data: null };
+        } catch (error: any) {
+          console.error("Delete Error:", error.message);
+          return { success: false, error: error.message };
+        }
+      },
+    };

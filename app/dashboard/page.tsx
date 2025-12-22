@@ -42,6 +42,9 @@ export default function Dashboard() {
     status: "",
   });
 
+  //delete handling
+
+
   // --- STATS CALCULATION ---
   const stats = useMemo(() => {
     const total = resources.length;
@@ -193,18 +196,18 @@ const handleLogout = async () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredResources.map((resource) => (
+              {resources.map((resource) => (
                 // UPDATE: Bungkus ResourceCard dengan div yang bisa diklik untuk membuka detail
                 <div key={resource.id} onClick={() => handleViewClick(resource)} className="cursor-pointer h-full">
                   <ResourceCard
+                    key={resource.id}
                     resource={resource}
                     // Kita cegah event bubbling agar tombol edit/delete di card tidak membuka detail
                     onEdit={(res) => {
-                      handleEditClick(res);
+                      setSelectedResource(res);
+                      setModalOpen(true);
                     }}
-                    onDelete={(id) => {
-                      handleDelete(id);
-                    }}
+                    onDelete={handleDelete}
                   />
                 </div>
               ))}
