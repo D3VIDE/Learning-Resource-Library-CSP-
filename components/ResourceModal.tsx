@@ -1,5 +1,6 @@
 "use client";
 
+// ... imports tetap sama ...
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "./ui/dialog";
 import { Button } from "./ui/button";
@@ -17,21 +18,12 @@ interface ResourceModalProps {
   onOpenChange: (open: boolean) => void;
   resource?: Resource;
   onSuccess: () => void;
-  // KITA TAMBAHKAN PROPS INI: Menerima kategori dari parent (Dashboard)
   categories?: Category[];
 }
 
-export function ResourceModal({
-  open,
-  onOpenChange,
-  resource,
-  onSuccess,
-  categories: initialCategories = [], // Default array kosong jika tidak dikirim
-}: ResourceModalProps) {
+export function ResourceModal({ open, onOpenChange, resource, onSuccess, categories: initialCategories = [] }: ResourceModalProps) {
   const [loading, setLoading] = useState(false);
-  // State kategori lokal
   const [categories, setCategories] = useState<Category[]>(initialCategories);
-
   const [activeTab, setActiveTab] = useState<"link" | "file">("link");
 
   const [formData, setFormData] = useState({
@@ -49,29 +41,30 @@ export function ResourceModal({
 
   useEffect(() => {
     if (open) {
-      // LOGIKA BARU: Jika data dari Dashboard ada, pakai itu. Jika tidak, baru fetch sendiri.
       if (initialCategories && initialCategories.length > 0) {
         setCategories(initialCategories);
       } else {
-        loadCategories(); // Fallback: ambil sendiri jika parent lupa ngasih
+        loadCategories();
       }
 
-      // Setup Form Data (Edit vs New)
       if (resource) {
+        // MODE EDIT: Isi form dengan data lama
         setFormData({
-          title: resource.title,
+          title: resource.title || "",
           description: resource.description || "",
+          // FIX PENTING: Pastikan category_id tidak null/undefined
           category_id: resource.category_id || "",
-          source_type: resource.source_type,
+          source_type: resource.source_type || "link",
           url: resource.url || "",
-          level: resource.level,
-          priority: resource.priority,
-          status: resource.status,
-          progress: resource.progress,
-          is_favorite: resource.is_favorite,
+          level: resource.level || "beginner",
+          priority: resource.priority || "medium",
+          status: resource.status || "not-started",
+          progress: resource.progress || 0,
+          is_favorite: resource.is_favorite || false,
         });
-        setActiveTab(resource.source_type);
+        setActiveTab(resource.source_type || "link");
       } else {
+        // MODE BARU: Reset form
         setFormData({
           title: "",
           description: "",
@@ -89,59 +82,63 @@ export function ResourceModal({
     }
   }, [open, resource, initialCategories]);
 
-  // Sinkronisasi Tab dengan formData
   useEffect(() => {
     setFormData((prev) => ({ ...prev, source_type: activeTab }));
   }, [activeTab]);
 
   const loadCategories = async () => {
-    try {
-      const result = await resourceService.getCategories();
-      if (result.success && result.data) {
-        setCategories(result.data);
-      }
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    }
+    const result = await resourceService.getCategories();
+    if (result.success && result.data) setCategories(result.data);
   };
 
+  // --- BAGIAN INI YANG HARUS DIPERHATIKAN ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title) return toast.error("Judul wajib diisi");
+    // Validasi input
+    if (!formData.title.trim()) return toast.error("Judul wajib diisi");
     if (!formData.category_id) return toast.error("Kategori wajib dipilih");
-    if (activeTab === "link" && !formData.url) return toast.error("URL wajib diisi");
 
     setLoading(true);
 
     try {
+      // Bersihkan Payload sebelum dikirim
       const payload = {
         ...formData,
+        // Pastikan progress number
         progress: parseInt(formData.progress.toString()) || 0,
+        // FIX: Jangan kirim string kosong ke UUID
+        category_id: formData.category_id === "" ? null : formData.category_id,
       };
 
+      console.log("Sending Update Payload:", payload); // Cek console browser (F12)
+
       let result;
-      if (resource) {
+      if (resource && resource.id) {
+        // UPDATE
         result = await resourceService.updateResource(resource.id, payload);
       } else {
+        // CREATE
         result = await resourceService.createResource(payload);
       }
 
       if (result.success) {
         toast.success(resource ? "Resource updated!" : "Resource created!");
-        onSuccess();
-        onOpenChange(false);
+        onSuccess(); // Refresh dashboard
+        onOpenChange(false); // Tutup modal
       } else {
-        toast.error(result.error || "Gagal menyimpan data");
+        console.error("Operation Failed:", result.error);
+        toast.error(`Gagal menyimpan: ${result.error}`);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Critical Error:", error);
       toast.error("Terjadi kesalahan sistem");
     } finally {
-      setLoading(false);
+      setLoading(false); // Pastikan loading berhenti apapun yang terjadi
     }
   };
 
+  // ... (Bagian return JSX di bawah SAMA PERSIS, tidak perlu diubah) ...
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
