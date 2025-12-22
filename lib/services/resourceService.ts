@@ -99,6 +99,7 @@ export const resourceService = {
   },
 
   // Create resource
+  // Create resource (VERSION: WHITELIST SAFE)
   async createResource(resource: any): Promise<ApiResponse<Resource>> {
     try {
       const {
@@ -106,24 +107,35 @@ export const resourceService = {
       } = await supabase.auth.getUser();
       if (!user) return { success: false, error: "Not authenticated" };
 
-      const { data, error } = await supabase
-        .from("resources")
-        .insert([
-          {
-            ...resource,
-            user_id: user.id,
-            // Pastikan category_id valid (jika string kosong ganti null)
-            category_id: resource.category_id || null,
-            progress: resource.progress || 0,
-            is_favorite: resource.is_favorite || false,
-            is_public: resource.is_public || false,
-          },
-        ])
-        .select()
-        .single();
+      // 1. SANITASI DATA: Hanya ambil field yang valid
+      const cleanPayload = {
+        title: resource.title,
+        description: resource.description,
+        category_id: resource.category_id === "" ? null : resource.category_id, // Ubah string kosong jadi null
+        source_type: resource.source_type,
+        url: resource.url,
+        level: resource.level,
+        priority: resource.priority,
+        status: resource.status,
+        progress: resource.progress || 0,
+        is_favorite: resource.is_favorite || false,
+        is_public: resource.is_public || false,
+        user_id: user.id, // Wajib ada untuk insert
+      };
+
+      // Hapus field undefined
+      Object.keys(cleanPayload).forEach((key) => {
+        if ((cleanPayload as any)[key] === undefined) {
+          delete (cleanPayload as any)[key];
+        }
+      });
+
+      console.log("Sending Clean Create Payload:", cleanPayload);
+
+      const { data, error } = await supabase.from("resources").insert([cleanPayload]).select().single();
 
       if (error) {
-        console.error("Error creating resource:", error);
+        console.error("Supabase Create Error:", error.message);
         return { success: false, error: error.message };
       }
 

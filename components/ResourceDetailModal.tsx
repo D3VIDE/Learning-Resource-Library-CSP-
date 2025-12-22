@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, DialogContent } from "./ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Resource } from "../lib/types";
@@ -94,6 +94,8 @@ export function ResourceDetailModal({ open, onOpenChange, resource, onEdit }: Re
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-xl">
+        <DialogTitle className="hidden">{resource.title}</DialogTitle>
+        <DialogDescription className="hidden">Detail view of {resource.title}</DialogDescription>
         {/* HEADER: Title & Edit Button */}
         <div className="p-6 pb-4 border-b border-gray-100 flex justify-between items-start sticky top-0 bg-white z-10">
           <div className="space-y-3 pr-8">
