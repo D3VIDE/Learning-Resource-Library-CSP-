@@ -104,15 +104,21 @@ export default function Dashboard() {
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
-    const handleLogout = async () => {
-      try {
-        await logout();
-        toast.success("Berhasil keluar. Sampai jumpa!");
-        router.push("/auth");
-      } catch (error) {
-        toast.error("Gagal logout, silakan coba lagi.");
-      }
-    };
+// app/dashboard/page.tsx
+const handleLogout = async () => {
+  try {
+    toast.loading("Mengalihkan...");
+    
+    // 1. Jalankan fungsi logout
+    await logout();
+    
+    // 2. PAKSA browser untuk pindah halaman dan bersihkan sisa cookie
+    // Ini jauh lebih aman daripada router.push untuk kasus stuck loading
+    window.location.href = "/auth";
+  } catch (error) {
+    window.location.href = "/auth";
+  }
+};
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this resource?")) {
