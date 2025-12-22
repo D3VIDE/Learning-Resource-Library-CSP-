@@ -61,3 +61,16 @@ export interface AuthResult {
   user?: User | null
   error?: string
 }
+
+export interface ResourceLink {
+  id?: string;
+  title: string;
+  url: string;
+}
+
+export interface ResourceFile {
+  id?: string;
+  file_name: string;
+  file_url: string;
+  file_size: number;
+}
