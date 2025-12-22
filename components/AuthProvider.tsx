@@ -50,10 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result
   }
 
-  const handleLogout = async () => {
-    await logout()
-    setUser(null)
+const handleLogout = async () => {
+  console.log("AuthProvider: Menjalankan signOut...");
+  try {
+    await logout(); // Fungsi dari lib/auth.ts
+    setUser(null);  // PAKSA state menjadi null secara manual
+    console.log("AuthProvider: State user di-set ke null");
+  } catch (err) {
+    console.error("AuthProvider: Gagal logout", err);
   }
+};
 
   return (
     <AuthContext.Provider

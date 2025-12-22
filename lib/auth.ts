@@ -49,31 +49,44 @@ export async function login(email: string, password: string): Promise<AuthResult
   }
 }
 
+// lib/auth.ts
 export async function logout() {
-  await supabase.auth.signOut()
+  console.log("Lib/Auth: Mengirim request signOut...");
+  
+ 
+  supabase.auth.signOut().catch(err => console.error("Signout background error:", err));
+
+  // Hapus manual session dari browser agar middleware mendeteksi user sudah keluar
+  if (typeof window !== 'undefined') {
+    // Hapus semua data supabase dari local storage
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('supabase.auth.token')) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
 }
 
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
     
-    if (!authUser) return null
+    if (authError || !authUser) return null
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('*')
+      .select('name, avatar_url')
       .eq('id', authUser.id)
-      .single()
+      .maybeSingle() 
 
-    const user: User = {
+    return {
       id: authUser.id,
       email: authUser.email!,
-      name: profile?.name || authUser.user_metadata?.name,
-      avatar_url: profile?.avatar_url,
+      // Ambil dari profil, jika tidak ada ambil dari metadata auth, jika tidak ada pakai email
+      name: profile?.name || authUser.user_metadata?.name || authUser.email?.split('@')[0],
+      avatar_url: profile?.avatar_url || null,
       created_at: authUser.created_at
     }
-
-    return user
   } catch (error) {
     console.error('Error getting user:', error)
     return null

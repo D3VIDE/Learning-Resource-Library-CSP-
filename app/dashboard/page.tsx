@@ -104,10 +104,15 @@ export default function Dashboard() {
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.push("/auth");
-  };
+    const handleLogout = async () => {
+      try {
+        await logout();
+        toast.success("Berhasil keluar. Sampai jumpa!");
+        router.push("/auth");
+      } catch (error) {
+        toast.error("Gagal logout, silakan coba lagi.");
+      }
+    };
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this resource?")) {

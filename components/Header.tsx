@@ -48,10 +48,17 @@ export function Header({ user, theme, onToggleTheme, onLogout }: HeaderProps) {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Keluar
-                </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onSelect={(e) => {
+                      e.preventDefault(); // Mencegah dropdown menutup sebelum fungsi jalan
+                      console.log("Menu logout diklik"); // Cek di console (F12)
+                      onLogout();
+                    }}
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Keluar</span>
+                  </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
