@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -10,20 +10,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Resource, Category } from "../lib/types";
 import { resourceService } from "../lib/services/resourceService";
 import { toast } from "sonner";
-import { Upload, Link as LinkIcon, FileText, X, CheckCircle2 } from "lucide-react";
+import { Upload, Link as LinkIcon, FileText } from "lucide-react";
 
 interface ResourceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   resource?: Resource;
   onSuccess: () => void;
+  // KITA TAMBAHKAN PROPS INI: Menerima kategori dari parent (Dashboard)
+  categories?: Category[];
 }
 
-export function ResourceModal({ open, onOpenChange, resource, onSuccess }: ResourceModalProps) {
+export function ResourceModal({
+  open,
+  onOpenChange,
+  resource,
+  onSuccess,
+  categories: initialCategories = [], // Default array kosong jika tidak dikirim
+}: ResourceModalProps) {
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
+  // State kategori lokal
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
 
-  // State untuk tab upload (File vs Link)
   const [activeTab, setActiveTab] = useState<"link" | "file">("link");
 
   const [formData, setFormData] = useState({
@@ -39,12 +47,16 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess }: Resou
     is_favorite: false,
   });
 
-  // Ref untuk input file (hidden)
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (open) {
-      loadCategories();
+      // LOGIKA BARU: Jika data dari Dashboard ada, pakai itu. Jika tidak, baru fetch sendiri.
+      if (initialCategories && initialCategories.length > 0) {
+        setCategories(initialCategories);
+      } else {
+        loadCategories(); // Fallback: ambil sendiri jika parent lupa ngasih
+      }
+
+      // Setup Form Data (Edit vs New)
       if (resource) {
         setFormData({
           title: resource.title,
@@ -60,7 +72,6 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess }: Resou
         });
         setActiveTab(resource.source_type);
       } else {
-        // Reset form
         setFormData({
           title: "",
           description: "",
@@ -76,51 +87,56 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess }: Resou
         setActiveTab("link");
       }
     }
-  }, [open, resource]);
+  }, [open, resource, initialCategories]);
 
-  // Sinkronisasi activeTab dengan formData.source_type
+  // Sinkronisasi Tab dengan formData
   useEffect(() => {
     setFormData((prev) => ({ ...prev, source_type: activeTab }));
   }, [activeTab]);
 
   const loadCategories = async () => {
-    const result = await resourceService.getCategories();
-    if (result.success && result.data) {
-      setCategories(result.data);
+    try {
+      const result = await resourceService.getCategories();
+      if (result.success && result.data) {
+        setCategories(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.title) return toast.error("Judul wajib diisi");
+    if (!formData.category_id) return toast.error("Kategori wajib dipilih");
+    if (activeTab === "link" && !formData.url) return toast.error("URL wajib diisi");
+
     setLoading(true);
 
     try {
       const payload = {
         ...formData,
-        progress: parseInt(formData.progress.toString()),
+        progress: parseInt(formData.progress.toString()) || 0,
       };
 
+      let result;
       if (resource) {
-        const result = await resourceService.updateResource(resource.id, payload);
-        if (result.success) {
-          toast.success("Resource updated successfully");
-          onSuccess();
-          onOpenChange(false);
-        } else {
-          toast.error(result.error || "Failed to update resource");
-        }
+        result = await resourceService.updateResource(resource.id, payload);
       } else {
-        const result = await resourceService.createResource(payload);
-        if (result.success) {
-          toast.success("Resource created successfully");
-          onSuccess();
-          onOpenChange(false);
-        } else {
-          toast.error(result.error || "Failed to create resource");
-        }
+        result = await resourceService.createResource(payload);
+      }
+
+      if (result.success) {
+        toast.success(resource ? "Resource updated!" : "Resource created!");
+        onSuccess();
+        onOpenChange(false);
+      } else {
+        toast.error(result.error || "Gagal menyimpan data");
       }
     } catch (error) {
-      toast.error("An error occurred");
+      console.error(error);
+      toast.error("Terjadi kesalahan sistem");
     } finally {
       setLoading(false);
     }
@@ -128,63 +144,44 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess }: Resou
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">{resource ? "Edit Resource" : "Add New Resource"}</DialogTitle>
+          <DialogTitle>{resource ? "Edit Resource" : "Add New Resource"}</DialogTitle>
           <DialogDescription>Fill in the details of your learning resource below.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5 py-2">
-          {/* Title Section */}
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="title" className="font-medium">
-              Title *
-            </Label>
-            <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required placeholder="e.g. Introduction to Machine Learning" className="bg-gray-50/50" />
+            <Label htmlFor="title">Title *</Label>
+            <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="e.g. Introduction to Machine Learning" required />
           </div>
 
-          {/* Description Section */}
           <div className="space-y-2">
-            <Label htmlFor="description" className="font-medium">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-              placeholder="Describe this learning resource..."
-              className="bg-gray-50/50 resize-none"
-            />
+            <Label htmlFor="desc">Description</Label>
+            <Textarea id="desc" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Describe this learning resource..." className="resize-none" />
           </div>
 
-          {/* Grid Layout for Attributes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="category" className="font-medium">
-                Category / Subject
-              </Label>
-              <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
-                <SelectTrigger className="bg-gray-50/50">
+              <Label>Category *</Label>
+              <Select value={formData.category_id} onValueChange={(val) => setFormData({ ...formData, category_id: val })}>
+                <SelectTrigger>
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Source Type (Replacing Source input to match Logic) */}
             <div className="space-y-2">
-              <Label htmlFor="level" className="font-medium">
-                Level
-              </Label>
-              <Select value={formData.level} onValueChange={(value: any) => setFormData({ ...formData, level: value })}>
-                <SelectTrigger className="bg-gray-50/50">
+              <Label>Level</Label>
+              <Select value={formData.level} onValueChange={(val: any) => setFormData({ ...formData, level: val })}>
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -196,14 +193,11 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess }: Resou
             </div>
           </div>
 
-          {/* Secondary Grid */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="priority" className="font-medium">
-                Priority
-              </Label>
-              <Select value={formData.priority} onValueChange={(value: any) => setFormData({ ...formData, priority: value })}>
-                <SelectTrigger className="bg-gray-50/50">
+              <Label>Priority</Label>
+              <Select value={formData.priority} onValueChange={(val: any) => setFormData({ ...formData, priority: val })}>
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -213,13 +207,10 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess }: Resou
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="status" className="font-medium">
-                Status
-              </Label>
-              <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>
-                <SelectTrigger className="bg-gray-50/50">
+              <Label>Status</Label>
+              <Select value={formData.status} onValueChange={(val: any) => setFormData({ ...formData, status: val })}>
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -231,80 +222,54 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess }: Resou
             </div>
           </div>
 
-          {/* Progress Slider Section */}
           <div className="space-y-3 bg-gray-50 p-4 rounded-lg border">
             <div className="flex justify-between items-center">
-              <Label htmlFor="progress" className="font-medium">
-                Progress
-              </Label>
-              <span className="text-sm font-bold bg-white px-2 py-1 rounded border shadow-sm">{formData.progress}%</span>
+              <Label>Progress</Label>
+              <span className="text-sm font-bold">{formData.progress}%</span>
             </div>
-            {/* Custom Range Slider using standard HTML input styled with Tailwind */}
             <input
-              id="progress"
               type="range"
               min="0"
               max="100"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
               value={formData.progress}
-              onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) || 0 })}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black dark:accent-white"
+              onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) })}
             />
           </div>
 
-          {/* Attachment / Source Section */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg w-full">
+            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg">
               <button
                 type="button"
                 onClick={() => setActiveTab("link")}
-                className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium py-2 rounded-md transition-all ${activeTab === "link" ? "bg-white shadow-sm text-black" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === "link" ? "bg-white shadow-sm text-black" : "text-gray-500"}`}
               >
                 <LinkIcon className="w-4 h-4" /> Links
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("file")}
-                className={`flex-1 flex items-center justify-center gap-2 text-sm font-medium py-2 rounded-md transition-all ${activeTab === "file" ? "bg-white shadow-sm text-black" : "text-gray-500 hover:text-gray-700"}`}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === "file" ? "bg-white shadow-sm text-black" : "text-gray-500"}`}
               >
                 <FileText className="w-4 h-4" /> Files
               </button>
             </div>
 
-            <div className="min-h-[100px]">
-              {activeTab === "link" ? (
-                <div className="space-y-2 mt-2">
-                  <Label htmlFor="url">Resource URL</Label>
-                  <Input id="url" type="url" value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} placeholder="https://example.com/course" className="bg-white" />
-                </div>
-              ) : (
-                <div
-                  className="mt-2 border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-gray-50 transition-colors cursor-pointer group"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    type="file"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={(e) => {
-                      // Handle file selection logic here later
-                      toast.info("File selection logic can be added here");
-                    }}
-                  />
-                  <div className="bg-gray-100 p-3 rounded-full mb-3 group-hover:bg-gray-200 transition-colors">
-                    <Upload className="w-6 h-6 text-gray-500" />
-                  </div>
-                  <p className="text-sm font-medium text-gray-700">Click to upload file</p>
-                  <p className="text-xs text-gray-500 mt-1">PDF, DOCX, TXT up to 10MB</p>
-                </div>
-              )}
-            </div>
+            {activeTab === "link" ? (
+              <Input placeholder="https://example.com/course" value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} />
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => toast.info("Fitur upload file belum tersedia, gunakan Link dulu ya!")}>
+                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">Click to upload file (Coming Soon)</p>
+              </div>
+            )}
           </div>
 
-          <DialogFooter className="pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="h-10">
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="h-10 px-8">
+            <Button type="submit" disabled={loading}>
               {loading ? "Saving..." : "Save Resource"}
             </Button>
           </DialogFooter>
