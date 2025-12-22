@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dial
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Resource } from "../lib/types";
-import { ExternalLink, FileText, BookOpen, Clock, Edit, Calendar, Download } from "lucide-react";
+import { ExternalLink, FileText, BookOpen, Clock, Edit, Calendar, Link as LinkIcon, Download } from "lucide-react";
 
 interface ResourceDetailModalProps {
   open: boolean;
@@ -30,7 +30,7 @@ export function ResourceDetailModal({ open, onOpenChange, resource, onEdit }: Re
     }
   };
 
-  // 2. HELPER: Safe URL Link
+  // 2. HELPER: Safe URL
   const getSafeLink = (url?: string) => {
     if (!url) return "#";
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -42,43 +42,53 @@ export function ResourceDetailModal({ open, onOpenChange, resource, onEdit }: Re
   // Helper warna badge
   const getPriorityColor = (p: string) => {
     switch (p) {
-      case "high": return "bg-red-600 text-white hover:bg-red-700";
-      case "medium": return "bg-yellow-500 text-white hover:bg-yellow-600";
-      case "low": return "bg-green-500 text-white hover:bg-green-600";
-      default: return "bg-gray-500";
+      case "high":
+        return "bg-red-600 text-white hover:bg-red-700";
+      case "medium":
+        return "bg-yellow-500 text-white hover:bg-yellow-600";
+      case "low":
+        return "bg-green-500 text-white hover:bg-green-600";
+      default:
+        return "bg-gray-500";
     }
   };
 
   const getLevelColor = (l: string) => {
     switch (l) {
-      case "beginner": return "text-green-600 bg-green-50";
-      case "intermediate": return "text-orange-500 bg-orange-50";
-      case "advanced": return "text-red-600 bg-red-50";
-      default: return "text-gray-500";
+      case "beginner":
+        return "text-green-600 bg-green-50";
+      case "intermediate":
+        return "text-orange-500 bg-orange-50";
+      case "advanced":
+        return "text-red-600 bg-red-50";
+      default:
+        return "text-gray-500";
     }
   };
 
   const getStatusColor = (s: string) => {
     switch (s) {
-      case "in-progress": return "text-blue-600 bg-blue-50";
-      case "completed": return "text-green-600 bg-green-50";
-      default: return "text-gray-600 bg-gray-100";
+      case "in-progress":
+        return "text-blue-600 bg-blue-50";
+      case "completed":
+        return "text-green-600 bg-green-50";
+      default:
+        return "text-gray-600 bg-gray-100";
     }
   };
-  
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-xl bg-white">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-xl">
+        {/* Hidden Title for Accessibility */}
         <DialogTitle className="hidden">{resource.title}</DialogTitle>
-        <DialogDescription className="hidden">Detail view of {resource.title}</DialogDescription>
-        
-        {/* HEADER: Title & Edit Button */}
+        <DialogDescription className="hidden">Detail view of resource</DialogDescription>
+
+        {/* HEADER */}
         <div className="p-6 pb-4 border-b border-gray-100 flex justify-between items-start sticky top-0 bg-white z-10">
           <div className="space-y-3 pr-8">
             <h2 className="text-2xl font-bold text-gray-900 leading-tight">{resource.title}</h2>
 
-            {/* Tags Row */}
             <div className="flex flex-wrap items-center gap-2">
               <Badge className={`${getPriorityColor(resource.priority)} rounded px-2.5 py-0.5 border-none capitalize`}>{resource.priority}</Badge>
               <Badge variant="outline" className={`${getLevelColor(resource.level)} border-transparent font-semibold capitalize`}>
@@ -95,17 +105,17 @@ export function ResourceDetailModal({ open, onOpenChange, resource, onEdit }: Re
             variant="outline"
             size="sm"
             onClick={() => {
-              onOpenChange(false); // Tutup detail
-              onEdit(resource); // Buka edit
+              onOpenChange(false);
+              onEdit(resource);
             }}
-            className="gap-2 text-gray-600 border-gray-300 hover:bg-gray-50"
+            className="gap-2 text-gray-600 border-gray-300"
           >
             <Edit className="w-4 h-4" /> Edit
           </Button>
         </div>
 
         <div className="p-6 space-y-8">
-          {/* INFO BOXES (Category) */}
+          {/* INFO BOXES */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100">
               <div className="text-gray-400 text-xs font-medium mb-1 flex items-center gap-1">
@@ -113,15 +123,25 @@ export function ResourceDetailModal({ open, onOpenChange, resource, onEdit }: Re
               </div>
               <div className="font-semibold text-gray-800">{resource.category?.name || "Uncategorized"}</div>
             </div>
+
+            {/* Menampilkan jumlah aset */}
+            <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100">
+              <div className="text-gray-400 text-xs font-medium mb-1 flex items-center gap-1">
+                <LinkIcon className="w-3 h-3" /> Assets
+              </div>
+              <div className="font-semibold text-gray-800">
+                {resource.links?.length || 0} Links, {resource.files?.length || 0} Files
+              </div>
+            </div>
           </div>
 
           {/* DESCRIPTION */}
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-2">Description</h3>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-line text-sm">{resource.description || "No description provided for this resource."}</p>
+            <p className="text-gray-700 leading-relaxed whitespace-pre-line text-sm">{resource.description || "No description provided."}</p>
           </div>
 
-          {/* PROGRESS BAR (Big) */}
+          {/* PROGRESS BAR */}
           <div>
             <div className="flex justify-between items-end mb-2">
               <h3 className="text-sm font-medium text-gray-500">Learning Progress</h3>
@@ -132,26 +152,19 @@ export function ResourceDetailModal({ open, onOpenChange, resource, onEdit }: Re
             </div>
           </div>
 
-          {/* RESOURCES LIST (Links & Files) */}
-          <div className="space-y-6 pt-4 border-t border-gray-100">
-            
-            {/* 1. ONLINE RESOURCES (Looping Array Links) */}
+          {/* --- BAGIAN INI SUDAH DIUPDATE UNTUK MENDUKUNG MULTIPLE LINKS --- */}
+          <div className="space-y-4 pt-4 border-t border-gray-100">
+            {/* 1. ONLINE RESOURCES (LINKS) */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                <ExternalLink className="w-4 h-4" /> Online Resources
+                <ExternalLink className="w-4 h-4" /> Online Resources ({resource.links?.length || 0})
               </h3>
 
               {resource.links && resource.links.length > 0 ? (
                 <div className="grid gap-3">
-                  {resource.links.map((link) => (
-                    <a 
-                      key={link.id}
-                      href={getSafeLink(link.url)} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex items-center gap-4 p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/30 transition-all group bg-white"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0 group-hover:scale-110 transition-transform">
+                  {resource.links.map((link, i) => (
+                    <a key={i} href={getSafeLink(link.url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/30 transition-all group">
+                      <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
                         <ExternalLink className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -163,50 +176,35 @@ export function ResourceDetailModal({ open, onOpenChange, resource, onEdit }: Re
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 italic bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">No external link attached.</p>
+                <p className="text-sm text-gray-400 italic bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">No external links attached.</p>
               )}
             </div>
 
-            {/* 2. ATTACHED FILES (Looping Array Files) */}
-            <div className="space-y-3">
+            {/* 2. ATTACHED FILES */}
+            <div className="space-y-3 pt-2">
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                <FileText className="w-4 h-4" /> Attached Files
+                <FileText className="w-4 h-4" /> Attached Files ({resource.files?.length || 0})
               </h3>
 
               {resource.files && resource.files.length > 0 ? (
                 <div className="grid gap-3">
-                  {resource.files.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors group">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-orange-500 shadow-sm">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate max-w-[200px] sm:max-w-[300px]">{file.file_name}</div>
-                          <div className="text-xs text-gray-500">
-                            {file.file_size ? (file.file_size / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown Size'} • {file.file_type || 'File'}
-                          </div>
-                        </div>
+                  {resource.files.map((file, i) => (
+                    <a key={i} href={file.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-3 rounded-xl border border-gray-200 hover:border-orange-300 hover:bg-orange-50/30 transition-all group">
+                      <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-600 flex-shrink-0">
+                        <FileText className="w-5 h-5" />
                       </div>
-                      
-                      <a 
-                        href={file.file_url} 
-                        download
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2 bg-white rounded-full border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-200 hover:shadow-sm transition-all"
-                        title="Download File"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                    </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 truncate group-hover:text-orange-700">{file.file_name}</div>
+                        <div className="text-xs text-gray-400">{(file.file_size / 1024 / 1024).toFixed(2)} MB</div>
+                      </div>
+                      <Download className="w-4 h-4 text-gray-300 group-hover:text-orange-500" />
+                    </a>
                   ))}
                 </div>
               ) : (
                 <p className="text-sm text-gray-400 italic bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">No files attached.</p>
               )}
             </div>
-
           </div>
 
           {/* Footer Date */}

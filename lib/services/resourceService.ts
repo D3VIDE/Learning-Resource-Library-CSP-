@@ -7,78 +7,86 @@ const uploadFilesToStorage = async (userId: string, resourceId: string, files: F
 
   for (const file of files) {
     try {
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-      const fileExt = cleanFileName.split('.').pop();
-      // Buat path unik: UserID/ResourceID/Timestamp_NamaFile
+      // Sanitasi nama file
+      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
       const filePath = `${userId}/${resourceId}/${Date.now()}_${cleanFileName}`;
 
-      // 2. Upload ke bucket 'library'
-      const { error: uploadError } = await supabase.storage
-        .from('library') // <--- SUDAH DIGANTI KE 'library'
-        .upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from("library").upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // 3. Dapatkan Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('library') // <--- SUDAH DIGANTI KE 'library'
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("library").getPublicUrl(filePath);
 
-      // 4. Masukkan ke array hasil
       uploadedFiles.push({
         resource_id: resourceId,
-        file_name: file.name, 
+        file_name: file.name,
         file_url: publicUrl,
         file_size: file.size,
-        file_type: file.type
+        file_type: file.type,
       });
-      
     } catch (error) {
       console.error(`Gagal upload ${file.name}:`, error);
     }
   }
-  
+
   return uploadedFiles;
 };
 
 export const resourceService = {
-  // 1. GET RESOURCES (Tetap sama)
+  // 1. GET RESOURCES
   async getResources(): Promise<ApiResponse<Resource[]>> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Not authenticated" };
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return { success: false, error: "Not authenticated" };
 
-    const { data, error } = await supabase
-      .from("resources")
-      .select(`
-        *,
-        category:categories(*),
-        links:resource_links(*),
-        files:resource_files(*)
-      `)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("resources")
+        .select(
+          `
+          *,
+          category:categories(*),
+          links:resource_links(*),
+          files:resource_files(*)
+        `
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: data || [] };
+      if (error) throw error;
+      return { success: true, data: data || [] };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   },
 
-  // 2. GET CATEGORIES (Tetap sama)
+  // 2. GET CATEGORIES
   async getCategories(): Promise<ApiResponse<Category[]>> {
-    const { data, error } = await supabase.from("categories").select("*").order("name");
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: data || [] };
+    try {
+      const { data, error } = await supabase.from("categories").select("*").order("name");
+      if (error) throw error;
+      return { success: true, data: data || [] };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   },
 
-  // 3. CREATE RESOURCE (Updated)
+  // 3. CREATE RESOURCE
   async createResource(payload: any): Promise<ApiResponse<Resource>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return { success: false, error: "Not authenticated" };
 
       // A. Simpan Resource Utama
-      const { data: resource, error } = await supabase
+      const { data: resourceData, error } = await supabase
         .from("resources")
-        .insert([{
+        .insert([
+          {
             user_id: user.id,
             title: payload.title,
             description: payload.description,
@@ -87,29 +95,32 @@ export const resourceService = {
             priority: payload.priority,
             status: payload.status,
             progress: payload.progress,
-            source_type: 'mixed',
-        }])
+            source_type: "mixed",
+          },
+        ])
         .select()
-        .single();
+        .single(); // Untuk Create, .single() biasanya aman karena ID baru pasti unik
 
       if (error) throw error;
+      const resource = resourceData;
 
       // B. Simpan Links
       if (payload.links && payload.links.length > 0) {
         const linksData = payload.links.map((link: any) => ({
           resource_id: resource.id,
           title: link.title,
-          url: link.url
+          url: link.url,
         }));
-        await supabase.from("resource_links").insert(linksData);
+        const { error: linkError } = await supabase.from("resource_links").insert(linksData);
+        if (linkError) console.error("Error inserting links:", linkError);
       }
 
-      // C. UPLOAD FILES KE 'library'
+      // C. UPLOAD FILES
       if (payload.files && payload.files.length > 0) {
         const filesData = await uploadFilesToStorage(user.id, resource.id, payload.files);
-        
         if (filesData.length > 0) {
-          await supabase.from("resource_files").insert(filesData);
+          const { error: fileError } = await supabase.from("resource_files").insert(filesData);
+          if (fileError) console.error("Error inserting files:", fileError);
         }
       }
 
@@ -120,52 +131,64 @@ export const resourceService = {
     }
   },
 
-  // 4. UPDATE RESOURCE (Updated)
+  // 4. UPDATE RESOURCE (BAGIAN YANG DIPERBAIKI)
   async updateResource(id: string, payload: any): Promise<ApiResponse<Resource>> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return { success: false, error: "Not authenticated" };
 
-      // A. Update Resource Utama
-      const { data: resource, error } = await supabase
+      console.log("Updating resource:", id, payload);
+
+      // A. Update Resource Utama (HAPUS .single() AGAR TIDAK 406)
+      const { data: updatedData, error } = await supabase
         .from("resources")
         .update({
-            title: payload.title,
-            description: payload.description,
-            category_id: payload.category_id || null,
-            level: payload.level,
-            priority: payload.priority,
-            status: payload.status,
-            progress: payload.progress,
+          title: payload.title,
+          description: payload.description,
+          category_id: payload.category_id || null,
+          level: payload.level,
+          priority: payload.priority,
+          status: payload.status,
+          progress: payload.progress,
         })
         .eq("id", id)
-        .select()
-        .single();
+        .select(); // Kita ambil array saja
 
       if (error) throw error;
 
-      // B. Handle Links
+      // Ambil item pertama dari array (jika ada)
+      const resource = updatedData && updatedData.length > 0 ? updatedData[0] : null;
+
+      // B. Handle Links (Delete All & Re-insert)
       if (payload.links) {
-        await supabase.from("resource_links").delete().eq("resource_id", id);
+        // Hapus link lama
+        const { error: delError } = await supabase.from("resource_links").delete().eq("resource_id", id);
+        if (delError) console.error("Error deleting old links:", delError);
+
+        // Insert link baru jika ada
         if (payload.links.length > 0) {
           const linksData = payload.links.map((link: any) => ({
             resource_id: id,
             title: link.title,
-            url: link.url
+            url: link.url,
           }));
-          await supabase.from("resource_links").insert(linksData);
+          const { error: insError } = await supabase.from("resource_links").insert(linksData);
+          if (insError) console.error("Error inserting new links:", insError);
         }
       }
 
-      // C. Handle Files (Upload baru ke 'library' & Insert DB)
+      // C. Handle Files (Upload baru & Insert DB)
       if (payload.files && payload.files.length > 0) {
         const filesData = await uploadFilesToStorage(user.id, id, payload.files);
         if (filesData.length > 0) {
-          await supabase.from("resource_files").insert(filesData);
+          const { error: fileError } = await supabase.from("resource_files").insert(filesData);
+          if (fileError) console.error("Error inserting new files:", fileError);
         }
       }
 
-      return { success: true, data: resource };
+      return { success: true, data: resource as Resource };
     } catch (error: any) {
       console.error("Update Error:", error.message);
       return { success: false, error: error.message };
@@ -174,8 +197,12 @@ export const resourceService = {
 
   // 5. DELETE RESOURCE
   async deleteResource(id: string): Promise<ApiResponse<null>> {
-    const { error } = await supabase.from("resources").delete().eq("id", id);
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: null };
+    try {
+      const { error } = await supabase.from("resources").delete().eq("id", id);
+      if (error) throw error;
+      return { success: true, data: null };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   },
 };

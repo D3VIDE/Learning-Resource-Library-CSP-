@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "./ui/dialog";
+import { useState, useEffect, useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -11,7 +11,7 @@ import { Resource, Category, ResourceLink } from "../lib/types";
 import { resourceService } from "../lib/services/resourceService";
 import { toast } from "sonner";
 import { Upload, Link as LinkIcon, FileText, Plus, X, Trash2, Globe, File, LayoutGrid, ListChecks } from "lucide-react";
-import { cn } from "@/lib/utils"; // Pastikan kamu punya utility ini (standar shadcn)
+import { cn } from "@/lib/utils";
 
 interface ResourceModalProps {
   open: boolean;
@@ -24,10 +24,11 @@ interface ResourceModalProps {
 export function ResourceModal({ open, onOpenChange, resource, onSuccess, categories = [] }: ResourceModalProps) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"link" | "file">("link");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newLink, setNewLink] = useState<ResourceLink>({ title: "", url: "" });
 
-  const [formData, setFormData] = useState({
+  const defaultFormState = {
     title: "",
     description: "",
     category_id: "",
@@ -37,67 +38,91 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
     progress: 0,
     links: [] as ResourceLink[],
     files: [] as File[],
-  });
+  };
 
+  const [formData, setFormData] = useState(defaultFormState);
+
+  // --- PERBAIKAN UTAMA ADA DI SINI ---
   useEffect(() => {
     if (open) {
       if (resource) {
+        // MODE EDIT: ISI DENGAN DATA LAMA
+        console.log("Editing Data:", resource); // Debugging di console
+
         setFormData({
-        title: "",
-        description: "",
-        category_id: "",
-        level: "beginner" as "beginner" | "intermediate" | "advanced",
-        priority: "medium" as "low" | "medium" | "high",
-        status: "not-started" as "not-started" | "in-progress" | "completed",
-        progress: 0,
-        links: [] as ResourceLink[],
-        files: [] as File[],
+          title: resource.title || "",
+          description: resource.description || "",
+          category_id: resource.category_id || "",
+          level: resource.level || "beginner",
+          priority: resource.priority || "medium",
+          status: resource.status || "not-started",
+          progress: resource.progress || 0,
+          // Mapping Link lama agar muncul di list edit
+          links: resource.links ? resource.links.map((l) => ({ title: l.title, url: l.url })) : [],
+          // File upload selalu kosong di awal karena kita tidak bisa convert URL jadi File Object
+          files: [],
         });
+
+        // Jika resource punya link, buka tab link. Jika tidak ada link tapi ada file, buka tab file.
+        if (resource.links && resource.links.length > 0) setActiveTab("link");
+        else if (resource.files && resource.files.length > 0) setActiveTab("file");
+        else setActiveTab("link");
       } else {
-        setFormData({
-          title: "", description: "", category_id: "",
-          level: "beginner", priority: "medium", status: "not-started",
-          progress: 0, links: [], files: [],
-        });
+        // MODE CREATE: RESET FORM
+        setFormData(defaultFormState);
         setActiveTab("link");
       }
     }
   }, [open, resource]);
 
-  // --- LOGIC HANDLERS (Sama seperti sebelumnya) ---
+  // --- LOGIC HANDLERS ---
   const addLinkAction = () => {
     if (!newLink.title.trim() || !newLink.url.trim()) return toast.error("Please enter both title and URL");
-    setFormData(prev => ({ ...prev, links: [...prev.links, newLink] }));
+    setFormData((prev) => ({ ...prev, links: [...prev.links, newLink] }));
     setNewLink({ title: "", url: "" });
   };
 
   const removeLink = (index: number) => {
-    setFormData(prev => ({ ...prev, links: prev.links.filter((_, i) => i !== index) }));
+    setFormData((prev) => ({ ...prev, links: prev.links.filter((_, i) => i !== index) }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
-      setFormData(prev => ({ ...prev, files: [...prev.files, ...newFiles] }));
+      // Validasi size client-side (opsional, misal 10MB)
+      const validFiles = newFiles.filter((file) => {
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`File ${file.name} terlalu besar (>10MB)`);
+          return false;
+        }
+        return true;
+      });
+      setFormData((prev) => ({ ...prev, files: [...prev.files, ...validFiles] }));
     }
   };
 
   const removeFile = (index: number) => {
-    setFormData(prev => ({ ...prev, files: prev.files.filter((_, i) => i !== index) }));
+    setFormData((prev) => ({ ...prev, files: prev.files.filter((_, i) => i !== index) }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) return toast.error("Title is required");
-    
+
     setLoading(true);
     try {
+      const payload = {
+        ...formData,
+        category_id: formData.category_id === "" ? null : formData.category_id,
+      };
+
+      console.log("Submitting Payload:", payload); // Debugging
+
       let result;
-      // Note: Logic upload file fisik harus dihandle di service
       if (resource?.id) {
-        result = await resourceService.updateResource(resource.id, formData as any);
+        result = await resourceService.updateResource(resource.id, payload);
       } else {
-        result = await resourceService.createResource(formData as any);
+        result = await resourceService.createResource(payload);
       }
 
       if (result.success) {
@@ -108,6 +133,7 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
         toast.error(result.error || "Failed to save");
       }
     } catch (error) {
+      console.error(error);
       toast.error("An error occurred");
     } finally {
       setLoading(false);
@@ -117,31 +143,27 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto p-0 gap-0 bg-background/95 backdrop-blur-xl border-border/50">
-        
         {/* HEADER */}
-        <DialogHeader className="p-6 pb-4 border-b border-border/40 sticky top-0 bg-background/95 backdrop-blur z-10">
+        <DialogHeader className="p-6 pb-4 border-b border-border/40 sticky top-0 bg-white z-10">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <LayoutGrid className="w-5 h-5" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-semibold tracking-tight">
-                {resource ? "Edit Resource" : "Create Resource"}
-              </DialogTitle>
-              <DialogDescription>
-                Add details, manage links, and upload files.
-              </DialogDescription>
+              <DialogTitle className="text-xl font-semibold tracking-tight">{resource ? "Edit Resource" : "Create Resource"}</DialogTitle>
+              <DialogDescription>Add details, manage links, and upload files.</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col">
           <div className="p-6 space-y-8">
-            
             {/* SECTION 1: MAIN INFO */}
             <div className="grid gap-5">
               <div className="space-y-2">
-                <Label htmlFor="title" className="text-foreground/80">Title</Label>
+                <Label htmlFor="title" className="text-foreground/80">
+                  Title
+                </Label>
                 <Input
                   id="title"
                   className="h-11 bg-muted/30 focus:bg-background transition-all font-medium text-lg"
@@ -153,7 +175,9 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="desc" className="text-foreground/80">Description</Label>
+                <Label htmlFor="desc" className="text-foreground/80">
+                  Description
+                </Label>
                 <Textarea
                   id="desc"
                   className="min-h-[80px] bg-muted/30 focus:bg-background resize-none transition-all"
@@ -167,12 +191,14 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
                 <div className="space-y-2">
                   <Label>Category</Label>
                   <Select value={formData.category_id} onValueChange={(val) => setFormData({ ...formData, category_id: val })}>
-                    <SelectTrigger className="h-10 bg-muted/30"><SelectValue placeholder="Select Category" /></SelectTrigger>
+                    <SelectTrigger className="h-10 bg-muted/30">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
                     <SelectContent>
                       {categories.map((cat) => (
                         <SelectItem key={cat.id} value={cat.id}>
                           <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color || '#ccc' }} />
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color || "#ccc" }} />
                             {cat.name}
                           </div>
                         </SelectItem>
@@ -180,11 +206,13 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select value={formData.status} onValueChange={(val: any) => setFormData({ ...formData, status: val })}>
-                    <SelectTrigger className="h-10 bg-muted/30"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10 bg-muted/30">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="not-started">Not Started</SelectItem>
                       <SelectItem value="in-progress">In Progress</SelectItem>
@@ -194,11 +222,13 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
                 </div>
               </div>
 
-               <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <Label>Level</Label>
                   <Select value={formData.level} onValueChange={(val: any) => setFormData({ ...formData, level: val })}>
-                    <SelectTrigger className="h-10 bg-muted/30"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10 bg-muted/30">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="beginner">Beginner</SelectItem>
                       <SelectItem value="intermediate">Intermediate</SelectItem>
@@ -209,7 +239,9 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
                 <div className="space-y-2">
                   <Label>Priority</Label>
                   <Select value={formData.priority} onValueChange={(val: any) => setFormData({ ...formData, priority: val })}>
-                    <SelectTrigger className="h-10 bg-muted/30"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10 bg-muted/30">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="low">Low</SelectItem>
                       <SelectItem value="medium">Medium</SelectItem>
@@ -222,7 +254,7 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
 
             {/* SECTION 2: PROGRESS */}
             <div className="space-y-4 bg-muted/30 p-5 rounded-xl border border-border/50">
-               <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <ListChecks className="w-4 h-4 text-muted-foreground" />
                   <Label className="text-foreground">Learning Progress</Label>
@@ -233,7 +265,7 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
                 type="range"
                 min="0"
                 max="100"
-                className="w-full h-2 bg-muted-foreground/20 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-primary/90 transition-all"
+                className="w-full h-2 bg-muted-foreground/20 rounded-lg appearance-none cursor-pointer accent-black"
                 value={formData.progress}
                 onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) })}
               />
@@ -241,146 +273,144 @@ export function ResourceModal({ open, onOpenChange, resource, onSuccess, categor
 
             {/* SECTION 3: ASSETS (Tabs Styled) */}
             <div className="space-y-4">
-               <Label className="text-base font-semibold">Attachments</Label>
-               
-               <div className="bg-muted/40 p-1 rounded-lg flex gap-1 border border-border/50">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("link")}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-md transition-all duration-200",
-                      activeTab === "link" ? "bg-background text-foreground shadow-sm ring-1 ring-border/50" : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
-                    )}
-                  >
-                    <LinkIcon className="w-4 h-4" /> 
-                    External Links 
-                    {formData.links.length > 0 && <span className="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded-full ml-1">{formData.links.length}</span>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("file")}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all duration-200",
-                      activeTab === "file" ? "bg-background text-foreground shadow-sm ring-1 ring-border/50" : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
-                    )}
-                  >
-                    <FileText className="w-4 h-4" /> 
-                    Uploaded Files
-                     {formData.files.length > 0 && <span className="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded-full ml-1">{formData.files.length}</span>}
-                  </button>
-               </div>
+              <Label className="text-base font-semibold">Attachments</Label>
 
-               <div className="min-h-[150px] animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  {activeTab === "link" ? (
-                    <div className="space-y-4">
-                      {/* Add Link Form */}
-                      <div className="flex gap-2 items-start">
-                        <div className="grid gap-2 flex-1">
-                          <div className="relative">
-                            <Input 
-                              placeholder="Title (e.g. Official Documentation)" 
-                              className="bg-muted/30 pl-9"
-                              value={newLink.title}
-                              onChange={(e) => setNewLink({ ...newLink, title: e.target.value })}
-                            />
-                            <FileText className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-                          </div>
-                          <div className="relative">
-                            <Input 
-                              placeholder="https://..." 
-                              className="bg-muted/30 pl-9"
-                              value={newLink.url}
-                              onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
-                            />
-                             <Globe className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-                          </div>
-                        </div>
-                        <Button type="button" onClick={addLinkAction} className="h-[88px] w-14" variant="secondary">
-                           <Plus className="w-5 h-5" />
-                        </Button>
-                      </div>
-
-                      {/* Links List */}
-                      {formData.links.length > 0 && (
-                        <div className="space-y-2 mt-4">
-                          {formData.links.map((link, i) => (
-                            <div key={i} className="group flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-all hover:shadow-sm">
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
-                                  <LinkIcon className="w-5 h-5" />
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-sm font-semibold truncate">{link.title}</span>
-                                  <span className="text-xs text-muted-foreground truncate">{link.url}</span>
-                                </div>
-                              </div>
-                              <Button 
-                                type="button" 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => removeLink(i)} 
-                                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {/* File Upload Zone */}
-                      <div className="relative group border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center hover:bg-muted/30 hover:border-primary/50 transition-all cursor-pointer">
-                        <input
-                          type="file"
-                          multiple
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                          onChange={handleFileChange}
-                        />
-                        <div className="flex flex-col items-center gap-2 group-hover:-translate-y-1 transition-transform duration-300">
-                          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                             <Upload className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">Click to upload or drag and drop</p>
-                            <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, PPTX (Max 10MB)</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Files List */}
-                      {formData.files.length > 0 && (
-                        <div className="grid gap-2">
-                          {formData.files.map((file, i) => (
-                            <div key={i} className="group flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-all">
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="h-10 w-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600 dark:text-orange-400 flex-shrink-0">
-                                  <File className="w-5 h-5" />
-                                </div>
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-sm font-semibold truncate">{file.name}</span>
-                                  <span className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
-                                </div>
-                              </div>
-                              <Button 
-                                type="button" 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => removeFile(i)}
-                                className="text-muted-foreground hover:text-destructive"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+              <div className="bg-muted/40 p-1 rounded-lg flex gap-1 border border-border/50">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("link")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-md transition-all duration-200",
+                    activeTab === "link" ? "bg-white text-black shadow-sm ring-1 ring-border/50" : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
                   )}
-               </div>
-            </div>
+                >
+                  <LinkIcon className="w-4 h-4" />
+                  External Links
+                  {formData.links.length > 0 && <span className="bg-black/10 text-black text-[10px] px-1.5 py-0.5 rounded-full ml-1">{formData.links.length}</span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("file")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all duration-200",
+                    activeTab === "file" ? "bg-white text-black shadow-sm ring-1 ring-border/50" : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
+                  )}
+                >
+                  <FileText className="w-4 h-4" />
+                  Uploaded Files
+                  {formData.files.length > 0 && <span className="bg-black/10 text-black text-[10px] px-1.5 py-0.5 rounded-full ml-1">{formData.files.length}</span>}
+                </button>
+              </div>
 
+              <div className="min-h-[150px] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {activeTab === "link" ? (
+                  <div className="space-y-4">
+                    {/* Add Link Form */}
+                    <div className="flex gap-2 items-start">
+                      <div className="grid gap-2 flex-1">
+                        <div className="relative">
+                          <Input placeholder="Title (e.g. Official Documentation)" className="bg-muted/30 pl-9" value={newLink.title} onChange={(e) => setNewLink({ ...newLink, title: e.target.value })} />
+                          <FileText className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                        </div>
+                        <div className="relative">
+                          <Input placeholder="https://..." className="bg-muted/30 pl-9" value={newLink.url} onChange={(e) => setNewLink({ ...newLink, url: e.target.value })} />
+                          <Globe className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                        </div>
+                      </div>
+                      <Button type="button" onClick={addLinkAction} className="h-[88px] w-14" variant="secondary">
+                        <Plus className="w-5 h-5" />
+                      </Button>
+                    </div>
+
+                    {/* Links List */}
+                    {formData.links.length > 0 && (
+                      <div className="space-y-2 mt-4">
+                        {formData.links.map((link, i) => (
+                          <div key={i} className="group flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-all hover:shadow-sm">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className="h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
+                                <LinkIcon className="w-5 h-5" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-semibold truncate">{link.title}</span>
+                                <span className="text-xs text-muted-foreground truncate">{link.url}</span>
+                              </div>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeLink(i)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* --- TAMPILKAN FILE YANG SUDAH ADA DI DATABASE --- */}
+                    {resource?.files && resource.files.length > 0 && (
+                      <div className="space-y-2 mb-4">
+                        <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Existing Files</Label>
+                        {resource.files.map((file, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-muted/20">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className="h-8 w-8 rounded bg-gray-200 flex items-center justify-center text-gray-600">
+                                <File className="w-4 h-4" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <a href={file.file_url} target="_blank" className="text-sm font-medium hover:underline truncate text-blue-600">
+                                  {file.file_name}
+                                </a>
+                                <span className="text-[10px] text-muted-foreground">Saved in library</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* File Upload Zone */}
+                    <div
+                      className="relative group border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center hover:bg-muted/30 hover:border-primary/50 transition-all cursor-pointer"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+                      <div className="flex flex-col items-center gap-2 group-hover:-translate-y-1 transition-transform duration-300">
+                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                          <Upload className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Click to upload new files</p>
+                          <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, PPTX (Max 10MB)</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* New Files List (Pending Upload) */}
+                    {formData.files.length > 0 && (
+                      <div className="grid gap-2">
+                        <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mt-2">Ready to Upload</Label>
+                        {formData.files.map((file, i) => (
+                          <div key={i} className="group flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card hover:bg-accent/50 transition-all">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className="h-10 w-10 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600 dark:text-orange-400 flex-shrink-0">
+                                <File className="w-5 h-5" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-semibold truncate">{file.name}</span>
+                                <span className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                              </div>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeFile(i)} className="text-muted-foreground hover:text-destructive">
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <DialogFooter className="p-6 pt-2 border-t border-border/40 bg-muted/10 sticky bottom-0 z-10">
