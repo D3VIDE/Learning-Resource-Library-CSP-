@@ -1,105 +1,63 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-import { BookOpen, CheckCircle, TrendingUp, Star, Loader2 } from "lucide-react"
-import { ResourceStats } from "../lib/types"
-import { useEffect, useState } from "react"
-import { resourceService } from "../lib/services/resourceService"
+import { Card, CardContent } from "./ui/card";
+import { BookOpen, Clock, CheckCircle2, TrendingUp } from "lucide-react";
 
-export function StatsCard() {
-  const [stats, setStats] = useState<ResourceStats | null>(null)
-  const [loading, setLoading] = useState(true)
+// Kita definisikan data apa yang dibutuhkan komponen ini
+interface StatsCardProps {
+  total: number;
+  inProgress: number;
+  completed: number;
+  avgProgress: number;
+}
 
-  useEffect(() => {
-    loadStats()
-  }, [])
-
-  const loadStats = async () => {
-    setLoading(true)
-    const result = await resourceService.getUserStats()
-    if (result.success && result.data) {
-      setStats(result.data)
-    }
-    setLoading(false)
-  }
-
-  if (loading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {[1, 2, 3, 4].map((i) => (
-          <Card key={i}>
-            <CardContent className="p-6">
-              <div className="flex justify-center">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    )
-  }
-
-  const statsData = stats || {
-    total_resources: 0,
-    completed_resources: 0,
-    in_progress_resources: 0,
-    total_progress_percentage: 0,
-    favorite_resources: 0
-  }
+// Hapus logic fetching (useEffect/useState) agar komponen ini ringan
+export function StatsCard({ total, inProgress, completed, avgProgress }: StatsCardProps) {
+  // Konfigurasi tampilan untuk setiap kartu agar kodenya rapi
+  const stats = [
+    {
+      label: "Total Resources",
+      value: total,
+      icon: <BookOpen className="w-4 h-4 text-blue-600" />,
+      bg: "bg-blue-50",
+      textColor: "text-blue-900",
+    },
+    {
+      label: "In Progress",
+      value: inProgress,
+      icon: <Clock className="w-4 h-4 text-orange-600" />,
+      bg: "bg-orange-50",
+      textColor: "text-orange-900",
+    },
+    {
+      label: "Completed",
+      value: completed,
+      icon: <CheckCircle2 className="w-4 h-4 text-green-600" />,
+      bg: "bg-green-50",
+      textColor: "text-green-900",
+    },
+    {
+      label: "Avg Progress",
+      value: `${Math.round(avgProgress)}%`,
+      icon: <TrendingUp className="w-4 h-4 text-purple-600" />,
+      bg: "bg-purple-50",
+      textColor: "text-purple-900",
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Resources</CardTitle>
-          <BookOpen className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{statsData.total_resources}</div>
-          <p className="text-xs text-muted-foreground">
-            Semua materi belajar
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Completed</CardTitle>
-          <CheckCircle className="h-4 w-4 text-green-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{statsData.completed_resources}</div>
-          <p className="text-xs text-muted-foreground">
-            Selesai dipelajari
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Progress</CardTitle>
-          <TrendingUp className="h-4 w-4 text-blue-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{Math.round(statsData.total_progress_percentage)}%</div>
-          <p className="text-xs text-muted-foreground">
-            Rata-rata progress
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Favorites</CardTitle>
-          <Star className="h-4 w-4 text-yellow-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{statsData.favorite_resources}</div>
-          <p className="text-xs text-muted-foreground">
-            Materi favorit
-          </p>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {stats.map((stat, index) => (
+        <Card key={index} className="border-none shadow-sm hover:shadow-md transition-shadow bg-white">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-sm font-medium text-gray-500">{stat.label}</span>
+              <div className={`p-2 rounded-lg ${stat.bg}`}>{stat.icon}</div>
+            </div>
+            <div className={`text-3xl font-bold ${stat.textColor}`}>{stat.value}</div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
-  )
+  );
 }
