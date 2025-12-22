@@ -4,13 +4,13 @@ import { Card, CardContent } from "./ui/card";
 import { BookOpen, Clock, CheckCircle2, TrendingUp } from "lucide-react";
 
 // Interface ini PENTING agar StatsCard bisa menerima data dari Dashboard
-interface StatsCardProps {
+interface StatsCardProps { //number --> tipe data (yang mewajibkan variable diisi oleh tipe data seperti int,double,float)
   total: number;
   inProgress: number;
   completed: number;
   avgProgress: number;
 }
-
+//Statscard mengambil dari hasil yang sudah di lempar dari dasboard kemudian di tampilkan dalam bentuk card (StatsCard)
 export function StatsCard({ total, inProgress, completed, avgProgress }: StatsCardProps) {
   const stats = [
     {

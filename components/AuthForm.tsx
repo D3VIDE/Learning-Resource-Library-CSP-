@@ -9,28 +9,33 @@ import { Label } from './ui/label';
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { toast } from 'sonner';
 import { BookOpen, Loader2, Moon, Sun } from 'lucide-react';
-import { useAuthContext } from './AuthProvider';
+import { useAuthContext } from './AuthProvider'; //dari authProvider
 
 
 interface AuthFormProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: () => void; //void ini return tidak ada
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
 
 export function AuthForm({onLoginSuccess,theme,onToggleTheme}: AuthFormProps){
+  // use state biasa
   const [isLogin,setIsLogin] = useState(true)
   const [name,setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login, signup } = useAuthContext();
+  //
+  const { login, signup } = useAuthContext(); //Akan dibawa ke AuthProvider untuk menjalankan eksekusi login dan signup
 
+
+  //button login atau register
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try{
+      //pengecekan logindari AuthProvider
       if (isLogin){
         const result = await login(email,password)
         if(result.success){

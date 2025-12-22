@@ -7,7 +7,9 @@ import { Resource } from "../lib/types";
 import { Edit2, Trash2, ExternalLink, FileText, PlayCircle, CheckCircle2, Clock, BookOpen, Eye } from "lucide-react";
 
 interface ResourceCardProps {
-  resource: Resource;
+  resource: Resource; /* Resource --> diambil dari index.ts  
+                          links?: ResourceLink[]; 
+                          files?: ResourceFile[];*/
   onEdit: (resource: Resource) => void;
   onDelete: (id: string) => void;
 }
@@ -116,14 +118,14 @@ export function ResourceCard({ resource, onEdit, onDelete }: ResourceCardProps) 
           </div>
         </div>
       </CardHeader>
-
+         
       <CardContent className="p-5 pt-2 flex-grow flex flex-col gap-4">
         <div className="flex gap-4">
           <span className="flex items-center gap-1.5" title="Attached Files">
-            <FileText className="w-3 h-3" /> {resource.files?.length || 0} {/* Ganti logika count */}
+            <FileText className="w-3 h-3" /> {resource.files?.length || 0}    
           </span>
           <span className="flex items-center gap-1.5" title="External Links">
-            <ExternalLink className="w-3 h-3" /> {resource.links?.length || 0} {/* Ganti logika count */}
+            <ExternalLink className="w-3 h-3" /> {resource.links?.length || 0} 
           </span>
         </div>
 

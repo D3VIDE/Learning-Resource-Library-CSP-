@@ -45,7 +45,7 @@ export default function Dashboard() {
   //delete handling
 
 
-  // --- STATS CALCULATION ---
+  // Stats Calculation untuk Stats Card
   const stats = useMemo(() => {
     const total = resources.length;
     const inProgress = resources.filter((r) => r.status === "in-progress").length;
@@ -55,7 +55,7 @@ export default function Dashboard() {
     const avgProgress = total > 0 ? totalProgress / total : 0;
 
     return { total, inProgress, completed, avgProgress };
-  }, [resources]);
+  }, [resources]); //bahan nya cuman butuh resource (yang lain seperti filter,dll ga ngaruh) karena logic code ini menggunakan resources untuk menghasilkan stats
 
   useEffect(() => {
     if (!authLoading && !user) router.push("/auth");
@@ -71,9 +71,11 @@ export default function Dashboard() {
     if (user) loadData();
   }, [user]);
 
+  //load data
   const loadData = async () => {
     setLoading(true);
     try {
+      //diambil dari resourceService.ts
       const [resResult, catResult] = await Promise.all([resourceService.getResources(), resourceService.getCategories()]);
 
       if (resResult.success && resResult.data) setResources(resResult.data);
@@ -96,9 +98,9 @@ export default function Dashboard() {
       const matchesPriority = filters.priority ? res.priority === filters.priority : true;
       const matchesStatus = filters.status ? res.status === filters.status : true;
 
-      return matchesSearch && matchesCategory && matchesLevel && matchesPriority && matchesStatus;
+      return matchesSearch && matchesCategory && matchesLevel && matchesPriority && matchesStatus; //di return hasilnya
     });
-  }, [resources, searchQuery, filters]);
+  }, [resources, searchQuery, filters]); //kemudian dimasukan ke useState
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -168,7 +170,7 @@ const handleLogout = async () => {
         <div className="mb-8">
           <StatsCard total={stats.total} inProgress={stats.inProgress} completed={stats.completed} avgProgress={stats.avgProgress} />
         </div>
-
+        {/* hasil yang direturn di kirimkan ke search and filter */}
         <SearchAndFilter
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}

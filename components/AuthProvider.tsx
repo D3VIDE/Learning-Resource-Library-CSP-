@@ -5,6 +5,17 @@ import { login, signup, logout, getCurrentUser } from "../lib/auth"
 import { User, AuthResult } from "../lib/types"
 import {supabase} from "../lib/client";
 
+//AuthProvider digunakan untuk global (menghandle status login user + profile user)
+
+/*
+AuthProvider tidak mengambil dari hooks/useAuth.tsx untuk menghindari duplikasi state
+dikarenakan AuthProvider menggunakan useState sendiri dan hooks/useAuth.tsx menggunakan useState sendiri juga
+
+#Notes:
+1. AuthProvider menggantikan fungsi useAuth dari hooks
+2. password emg g ada di AuthResult karena mengikuti bentuk supabase (dan tdk menyertakan password di index.ts merupakan bagian praktik keamanan)
+*/
+
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<AuthResult>
@@ -13,13 +24,13 @@ interface AuthContextType {
   loading: boolean
 }
 
-const AuthContext = createContext<AuthContextType | null>(null)
+const AuthContext = createContext<AuthContextType | null>(null) //boleh berisi data lengkap/null
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  useEffect(() => { //initial check ketika pertama kali dibuka 
     getCurrentUser().then((user) => {
       setUser(user)
       setLoading(false)
@@ -31,10 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(user)
       }
     )
+    //jika ada perubahan seperti login atau logout maka akan dijalankan
 
     return () => {
       subscription.unsubscribe()
-    }
+    } //untuk clean up
   }, [])
 
   const handleLogin = async (email: string, password: string) => {

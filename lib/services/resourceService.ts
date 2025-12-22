@@ -1,17 +1,17 @@
 import { supabase } from "../client";
 import { Resource, ApiResponse, Category } from "../types";
 
-// Helper: Upload file ke Storage Bucket 'library'
+//  Upload file ke Storage Bucket 'library'
 const uploadFilesToStorage = async (userId: string, resourceId: string, files: File[]) => {
   const uploadedFiles = [];
 
   for (const file of files) {
     try {
       // Sanitasi nama file
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
-      const filePath = `${userId}/${resourceId}/${Date.now()}_${cleanFileName}`;
+      const cleanFileName = file.name.replace(/[^a-zA-Z0-9.]/g, "_"); //ngeclean name file
+      const filePath = `${userId}/${resourceId}/${Date.now()}_${cleanFileName}`; //set file path nya
 
-      const { error: uploadError } = await supabase.storage.from("library").upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from("library").upload(filePath, file); //error handling jika uploadError
 
       if (uploadError) throw uploadError;
 
@@ -35,7 +35,8 @@ const uploadFilesToStorage = async (userId: string, resourceId: string, files: F
 };
 
 export const resourceService = {
-  // 1. GET RESOURCES
+
+  // 1. GET RESOURCES YG ADA DI DATABASE SESUAI USER ID
   async getResources(): Promise<ApiResponse<Resource[]>> {
     try {
       const {
@@ -63,7 +64,7 @@ export const resourceService = {
     }
   },
 
-  // 2. GET CATEGORIES
+  // 2. GET CATEGORIES UNTUK DIKIRIMKAN KE RESOURCE/PAGE (nanti jadi bentuk dropdown)
   async getCategories(): Promise<ApiResponse<Category[]>> {
     try {
       const { data, error } = await supabase.from("categories").select("*").order("name");
@@ -154,6 +155,7 @@ export const resourceService = {
           priority: payload.priority,
           status: payload.status,
           progress: payload.progress,
+          source_type: "mixed",
         })
         .eq("id", id)
         .select(); // Kita ambil array saja

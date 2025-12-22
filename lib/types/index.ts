@@ -1,4 +1,4 @@
-export interface User {
+export interface User { // ini nanti digunakan untuk auth
   id: string
   email: string
   name?: string
@@ -15,11 +15,11 @@ export interface Resource {
   category?: Category;
   
 
-  // Data dari Supabase join akan masuk ke sini
+
   links?: ResourceLink[]; 
   files?: ResourceFile[];
 
-  // Field lama (opsional, buat jaga-jaga backward compatibility)
+
   url?: string | null;
   file_name?: string | null;
 
@@ -55,9 +55,9 @@ export interface ApiResponse<T = any> {
   error?: string
 }
 
-export interface AuthResult {
+export interface AuthResult {  //<-- Buat membantu Auth
   success: boolean
-  user?: User | null
+  user?: User | null // <-- mengambil dari interface User
   error?: string
 }
 

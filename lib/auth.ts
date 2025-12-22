@@ -1,6 +1,12 @@
-import { supabase } from "./client"
-import { AuthResult, User } from "./types"
+"use client"
 
+import { supabase } from "./client"
+import { AuthResult, User } from "./types" //mengambil dari index.ts
+
+
+//digunkana untuk login,signup,logout,get current user
+//file file seperti hooks.auth akan memanggil dari sini
+//auth.ts akan digunakan untuk berkoneksi ke supabase
 export async function signup(name: string, email: string, password: string): Promise<AuthResult> {
   try {
     const { data, error } = await supabase.auth.signUp({
