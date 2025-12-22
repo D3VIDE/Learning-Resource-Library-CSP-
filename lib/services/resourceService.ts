@@ -77,9 +77,7 @@ export const resourceService = {
   // 3. CREATE RESOURCE
   async createResource(payload: any): Promise<ApiResponse<Resource>> {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { success: false, error: "Not authenticated" };
 
       // A. Simpan Resource Utama
@@ -95,14 +93,18 @@ export const resourceService = {
             priority: payload.priority,
             status: payload.status,
             progress: payload.progress,
-            source_type: "mixed",
+            // Database WAJIB sudah di-patch SQL di Langkah 1 agar terima ini
+            source_type: "mixed", 
           },
         ])
-        .select()
-        .single(); // Untuk Create, .single() biasanya aman karena ID baru pasti unik
+        .select(); 
 
       if (error) throw error;
-      const resource = resourceData;
+
+      // Ambil item pertama dari array secara manual (Lebih Aman)
+      const resource = resourceData && resourceData.length > 0 ? resourceData[0] : null;
+
+      if (!resource) throw new Error("Resource created but no data returned");
 
       // B. Simpan Links
       if (payload.links && payload.links.length > 0) {
